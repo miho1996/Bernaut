@@ -1,10 +1,16 @@
-// Индексатор лаунчпада Pons на Robinhood Chain (chain id 4663).
+// Индексатор лаунчпада Pons V2 на Robinhood Chain (chain id 4663).
 //
-// Источник контрактов и событий: Mobula Almanac, «Pons Launchpad Integration on Robinhood Chain».
-//  - Фабрики эмитят TokenLaunched(token, deployer, dexFactory, pairToken, pool, ...)
-//  - Торговля идёт в пулах Uniswap V3 → читаем их Swap
-//  - Прогресс бондинга и graduation: factory.graduationStatus(token)
-//  - Метаданные и соцсети: token.getTokenInfo()
+// Как устроен Pons V2 (проверено по блокчейну, ноябрь 2026):
+//  - PonsV2LaunchFactory 0x7ed5…ec7e эмитит TokenLaunched(token, curve, deployer, pairToken, launchConfigId, graduationThreshold).
+//    pairToken = 0x0 → нативный ETH.
+//  - До graduation токен торгуется на своём контракте-кривой: CurveBuy / CurveSell.
+//    curve.getReserves() → (quoteReserve, tokenReserve); в quoteReserve сидит «фантомная» ликвидность
+//    (pairTokenEconomics(pair).phantomQuote, для ETH = 1.68). Цена = quote / token (constant product).
+//    Прогресс = (quote − phantom) / graduationThreshold, graduation при 4.2 ETH реальных.
+//  - Graduation: фабрика эмитит PoolGraduated(token, positionId, tokenAmount, pairTokenAmount),
+//    в той же транзакции Uniswap V4 PoolManager эмитит Initialize(id, currency0, currency1, …, hooks = Pons hook).
+//    Дальше сделки — Swap(id, …) на PoolManager. Позиция ликвидности навсегда лежит в locker.
+//  - Метаданные: token.getTokenInfo() → (deployer, logo, description, socials{twitter,telegram,discord,website,farcaster}).
 //
 // Всё хранится в памяти. После рестарта сервис заново догоняет последние BACKFILL_HOURS.
 
@@ -13,33 +19,41 @@ import { GET_TOKEN_INFO_SELECTOR, parseTokenInfo } from "./tokeninfo.js";
 
 export const PONS = {
   chainId: 4663,
-  factories: [
-    "0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB", // active
-    "0x0c37a24F5D23A486FA692d1500881d698B1F77a4", // legacy
-  ],
-  lockers: [
-    "0x736D76699C26D0d966744cAe304C000d471f7F35",
-    "0x31ca5E101941A93A7DD6d0497928700625CF54B5",
-  ],
+  factory: "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e", // PonsV2LaunchFactory
+  launchDeployer: "0x3711cea4feade896c913c68f01eda97cb06d1a42",
+  poolManager: "0x8366a39cc670b4001a1121b8f6a443a643e40951", // Uniswap V4
+  hook: "0xe5e702641ea86f4ae6cc3cdaed2b886f976be044",
+  locker: "0x267444d099b10fb5ed7c3cc7b7c767adca574952",
 };
+export const NATIVE = "0x0000000000000000000000000000000000000000";
 
-const EV_LAUNCH = parseAbiItem(
-  "event TokenLaunched(address indexed token, address indexed deployer, address indexed dexFactory, address pairToken, address pool, uint256 dexId, uint256 launchConfigId, uint256 positionId, uint256 restrictionsEndBlock, uint256 initialBuyAmount)"
+export const EV_LAUNCH = parseAbiItem(
+  "event TokenLaunched(address indexed token, address indexed curve, address indexed deployer, address pairToken, uint256 launchConfigId, uint256 graduationThreshold)"
 );
-const EV_SWAP = parseAbiItem(
-  "event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)"
+export const EV_GRAD = parseAbiItem("event PoolGraduated(address indexed token, uint256 positionId, uint256 tokenAmount, uint256 pairTokenAmount)");
+export const EV_BUY = parseAbiItem("event CurveBuy(address indexed buyer, address indexed recipient, uint256 quoteIn, uint256 tokensOut, uint256 fee, uint256 tax)");
+export const EV_SELL = parseAbiItem("event CurveSell(address indexed seller, address indexed recipient, uint256 tokensIn, uint256 quoteOut, uint256 fee, uint256 tax)");
+export const EV_V4_INIT = parseAbiItem(
+  "event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)"
 );
-const EV_TRANSFER = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
-const FACTORY_ABI = parseAbi(["function graduationStatus(address token) view returns (uint256 current, uint256 threshold, bool graduated)"]);
+export const EV_V4_SWAP = parseAbiItem(
+  "event Swap(bytes32 indexed id, address indexed sender, int128 amount0, int128 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick, uint24 fee)"
+);
+export const EV_TRANSFER = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
+
+const FACTORY_ABI = parseAbi([
+  "function pairTokenEconomics(address) view returns (uint256 phantomQuote, uint256 graduationThreshold, uint8 decimals)",
+  "function getLaunchedToken(address) view returns ((address token, address curve, address deployer, address creatorFeeRecipient, address pairToken, uint256 graduationThreshold, uint24 poolFee, int24 tickSpacing, uint16 creatorTaxBps, bool buybackEnabled, uint8 phase, uint256 sweptQuote, uint256 sweptTokens, uint256 sweptAt, bool exists))",
+]);
+const CURVE_ABI = parseAbi(["function getReserves() view returns (uint256 quoteReserve, uint256 tokenReserve)"]);
 const ERC20_ABI = parseAbi([
   "function name() view returns (string)",
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
   "function totalSupply() view returns (uint256)",
-  "function balanceOf(address) view returns (uint256)",
 ]);
 
-const ZERO = "0x0000000000000000000000000000000000000000";
+const ZERO = NATIVE;
 const DEAD = "0x000000000000000000000000000000000000dead";
 const lc = (a) => a.toLowerCase();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -50,6 +64,7 @@ async function pool(items, n, fn) {
   await Promise.all(Array.from({ length: Math.min(n, q.length) }, async () => { while (q.length) await fn(q.shift()); }));
 }
 const chunks = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
+const byOrder = (a, b) => (a.blockNumber === b.blockNumber ? a.logIndex - b.logIndex : a.blockNumber < b.blockNumber ? -1 : 1);
 
 export function defaultConfig(env = process.env) {
   return {
@@ -57,8 +72,8 @@ export function defaultConfig(env = process.env) {
     backfillHours: +(env.BACKFILL_HOURS ?? 6),
     pollMs: +(env.POLL_MS ?? 3000),
     refreshMs: +(env.REFRESH_MS ?? 20000),
-    logChunk: +(env.LOG_CHUNK ?? 2000),
-    sniperBlocks: +(env.SNIPER_BLOCKS ?? 20),
+    logChunk: +(env.LOG_CHUNK ?? 5000),
+    sniperBlocks: +(env.SNIPER_BLOCKS ?? 50), // блоки ~0.1с → 50 блоков ≈ 5 секунд
     maxTracked: +(env.MAX_TRACKED ?? 4000),
     listLimit: +(env.LIST_LIMIT ?? 500),
     deadAfterMin: +(env.DEAD_AFTER_MIN ?? 120),
@@ -78,11 +93,11 @@ export class PonsIndexer {
         chain: defineChain({ id: PONS.chainId, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [cfg.rpcUrl] } } }),
         transport: http(cfg.rpcUrl, { retryCount: 3, timeout: 20000 }),
       });
-    this.factories = PONS.factories.map(lc);
-    this.excluded = new Set([ZERO, DEAD, ...this.factories, ...PONS.lockers.map(lc)]);
+    this.excluded = new Set([ZERO, DEAD, PONS.factory, PONS.launchDeployer, PONS.poolManager, PONS.hook, PONS.locker]);
     this.tokens = new Map(); // token → state
-    this.pools = new Map(); // pool → token
-    this.pairs = new Map(); // pairToken → { symbol, decimals, kind }
+    this.curves = new Map(); // curve → token
+    this.v4pools = new Map(); // poolId → token
+    this.pairs = new Map(); // pairToken → { symbol, decimals, kind, phantom }
     this.deployers = new Map(); // deployer → [{ token, block }]  (не вычищается)
     this.rugged = new Set();
     this.prices = { eth: cfg.ethUsdFallback, btc: null, ts: 0 };
@@ -92,6 +107,7 @@ export class PonsIndexer {
     this.synced = false;
     this.chunk = cfg.logChunk;
     this.stopped = false;
+    this.lastError = null;
   }
 
   // ---------- lifecycle ----------
@@ -127,19 +143,32 @@ export class PonsIndexer {
   }
 
   async scanLoop() {
+    let lastReport = 0;
     while (!this.stopped) {
       try {
         this.head = await this.client.getBlockNumber();
-        if (this.cursor >= this.head) { this.synced = true; await sleep(this.cfg.pollMs); continue; }
+        if (this.cursor >= this.head) {
+          if (!this.synced) this.log.info?.(`[pons] synced: ${this.tokens.size} tokens`);
+          this.synced = true;
+          await sleep(this.cfg.pollMs);
+          continue;
+        }
         const to = this.cursor + BigInt(this.chunk) < this.head ? this.cursor + BigInt(this.chunk) : this.head;
         await this.scanRange(this.cursor + 1n, to);
         this.cursor = to;
+        this.lastError = null;
         if (this.chunk < this.cfg.logChunk) this.chunk = Math.min(this.cfg.logChunk, this.chunk * 2);
+        if (!this.synced && Date.now() - lastReport > 30000) {
+          lastReport = Date.now();
+          this.log.info?.(`[pons] backfill ${this.status().syncPct}% · ${this.tokens.size} tokens`);
+        }
       } catch (e) {
         const msg = String(e?.shortMessage || e?.message || e);
-        if (/range|too many|limit|exceed|10000|timeout|size/i.test(msg) && this.chunk > 10) {
+        this.lastError = msg.slice(0, 200);
+        if (/range|too many|limit|exceed|10000|timeout|size|large/i.test(msg) && this.chunk > 10) {
           this.chunk = Math.max(10, Math.floor(this.chunk / 2));
           this.log.warn?.(`[pons] getLogs failed, chunk → ${this.chunk}: ${msg.slice(0, 160)}`);
+          await sleep(500);
         } else {
           this.log.error?.(`[pons] scan error: ${msg.slice(0, 300)}`);
           await sleep(5000);
@@ -172,35 +201,47 @@ export class PonsIndexer {
 
   // ---------- scanning ----------
   async scanRange(from, to) {
-    const launches = await this.client.getLogs({ address: PONS.factories, event: EV_LAUNCH, fromBlock: from, toBlock: to });
-    await pool(launches, 6, (l) => this.addToken(l));
+    // 1) запуски и graduation на фабрике
+    const fac = await this.client.getLogs({ address: PONS.factory, events: [EV_LAUNCH, EV_GRAD], fromBlock: from, toBlock: to });
+    fac.sort(byOrder);
+    await pool(fac.filter((l) => l.eventName === "TokenLaunched"), 6, (l) => this.addToken(l));
+    for (const l of fac.filter((l) => l.eventName === "PoolGraduated")) await this.onGraduated(l);
 
     const [tsFrom, tsTo] = await Promise.all([this.ts(from), this.ts(to)]);
     const tsOf = (bn) => (to === from ? tsTo : tsFrom + ((tsTo - tsFrom) * Number(bn - from)) / Number(to - from));
 
-    const poolAddrs = [...this.pools.keys()];
-    const tokenAddrs = [...this.tokens.keys()];
+    // 2) сделки на кривых, сделки в V4 и трансферы токенов
     const logs = [];
-    for (const c of chunks(poolAddrs, 400)) logs.push(...(await this.client.getLogs({ address: c, event: EV_SWAP, fromBlock: from, toBlock: to })));
-    for (const c of chunks(tokenAddrs, 400)) logs.push(...(await this.client.getLogs({ address: c, event: EV_TRANSFER, fromBlock: from, toBlock: to })));
-    logs.sort((a, b) => (a.blockNumber === b.blockNumber ? a.logIndex - b.logIndex : a.blockNumber < b.blockNumber ? -1 : 1));
+    for (const c of chunks([...this.curves.keys()], 400)) logs.push(...(await this.client.getLogs({ address: c, events: [EV_BUY, EV_SELL], fromBlock: from, toBlock: to })));
+    const ids = [...this.v4pools.keys()];
+    for (const c of chunks(ids, 50)) logs.push(...(await this.client.getLogs({ address: PONS.poolManager, event: EV_V4_SWAP, args: { id: c }, fromBlock: from, toBlock: to })));
+    for (const c of chunks([...this.tokens.keys()], 400)) logs.push(...(await this.client.getLogs({ address: c, event: EV_TRANSFER, fromBlock: from, toBlock: to })));
+    logs.sort(byOrder);
 
     for (const l of logs) {
-      if (l.eventName === "Swap") this.onSwap(l, tsOf(l.blockNumber));
-      else if (l.eventName === "Transfer") this.onTransfer(l, tsOf(l.blockNumber));
+      const ts = tsOf(l.blockNumber);
+      if (l.eventName === "CurveBuy" || l.eventName === "CurveSell") this.onCurveTrade(l, ts);
+      else if (l.eventName === "Swap") this.onV4Swap(l, ts);
+      else if (l.eventName === "Transfer") this.onTransfer(l, ts);
     }
   }
 
   async pairInfo(addr) {
     const a = lc(addr);
     if (!this.pairs.has(a)) {
-      const [symbol, decimals] = await Promise.all([
-        this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "symbol" }).catch(() => "?"),
-        this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "decimals" }).catch(() => 18),
-      ]);
+      let symbol = "ETH", decimals = 18;
+      if (a !== NATIVE) {
+        [symbol, decimals] = await Promise.all([
+          this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "symbol" }).catch(() => "?"),
+          this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "decimals" }).catch(() => 18),
+        ]);
+      }
+      const econ = await this.client.readContract({ address: PONS.factory, abi: FACTORY_ABI, functionName: "pairTokenEconomics", args: [addr] }).catch(() => null);
       const s = String(symbol).toUpperCase();
-      const kind = /USD/.test(s) ? "usd" : /ETH/.test(s) ? "eth" : /BTC/.test(s) ? "btc" : "unknown";
-      this.pairs.set(a, { symbol: String(symbol), decimals: Number(decimals), kind });
+      const kind = a === NATIVE ? "eth" : /USD/.test(s) ? "usd" : /ETH/.test(s) ? "eth" : /BTC/.test(s) ? "btc" : "unknown";
+      const dec = Number(decimals);
+      const phantom = econ ? Number(formatUnits(econ[0], dec)) : a === NATIVE ? 1.68 : 0;
+      this.pairs.set(a, { symbol: String(symbol), decimals: dec, kind, phantom });
     }
     return this.pairs.get(a);
   }
@@ -229,12 +270,14 @@ export class PonsIndexer {
     const t = {
       address: token,
       deployer: lc(a.deployer),
-      factory: lc(l.address),
+      curve: lc(a.curve),
       pairToken: lc(a.pairToken),
-      pool: lc(a.pool),
-      isToken0: token < lc(a.pairToken), // в Uniswap V3 token0 — меньший адрес
+      poolId: null, // Uniswap V4 pool id после graduation
+      isToken0: false, // в V4 нативный ETH всегда currency0
       decimals: Number(decimals),
       pairDecimals: pair.decimals,
+      phantom: pair.phantom,
+      threshold: Number(formatUnits(a.graduationThreshold ?? 0n, pair.decimals)) || 4.2,
       supply: Number(formatUnits(supply, Number(decimals))) || 1,
       name: String(name),
       symbol: String(symbol),
@@ -246,44 +289,106 @@ export class PonsIndexer {
       lastPrice: 0,
       progress: 0,
       graduated: false,
-      pairBal: 0,
+      pairBal: 0, // реальная ликвидность в пар-токене
       info: null,
       lastActivity: launchTs,
       dirty: true,
       peakMcap: 0,
       devSold: false,
     };
+    // стартовая цена кривой: phantom / supply
+    if (t.phantom > 0) t.lastPrice = t.phantom / t.supply;
     this.tokens.set(token, t);
-    this.pools.set(t.pool, token);
+    this.curves.set(t.curve, token);
+    this.excluded.add(t.curve);
     if (!this.deployers.has(t.deployer)) this.deployers.set(t.deployer, []);
     this.deployers.get(t.deployer).push({ token, block: l.blockNumber });
   }
 
+  async onGraduated(l) {
+    const t = this.tokens.get(lc(l.args.token));
+    if (!t) return;
+    t.graduated = true;
+    t.progress = 100;
+    t.pairBal = Number(formatUnits(l.args.pairTokenAmount, t.pairDecimals));
+    t.dirty = true;
+    try {
+      const rc = await this.client.getTransactionReceipt({ hash: l.transactionHash });
+      for (const x of rc.logs) {
+        // Initialize(id, currency0, currency1, …) от PoolManager в той же транзакции
+        if (lc(x.address) !== PONS.poolManager || !x.topics[0]?.startsWith("0xdd466e67")) continue;
+        const c0 = "0x" + x.topics[2].slice(26), c1 = "0x" + x.topics[3].slice(26);
+        if (c0 !== t.address && c1 !== t.address) continue;
+        t.poolId = x.topics[1];
+        t.isToken0 = c0 === t.address;
+        this.v4pools.set(t.poolId, t.address);
+        break;
+      }
+    } catch (e) {
+      this.log.warn?.(`[pons] graduation receipt ${t.address}: ${e.message}`);
+    }
+  }
+
+  trimSwaps(t, ts) {
+    const cutoff = ts - DAY;
+    let i = 0;
+    while (i < t.swaps.length - 1 && t.swaps[i + 1].ts < cutoff) i++;
+    if (i > 0) t.swaps.splice(0, i);
+  }
+
+  onCurveTrade(l, ts) {
+    const t = this.tokens.get(this.curves.get(lc(l.address)));
+    if (!t) return;
+    const a = l.args;
+    const q = (v) => Number(formatUnits(v, t.pairDecimals));
+    const k = (v) => Number(formatUnits(v, t.decimals));
+    let price, pairAmt, buy;
+    if (l.eventName === "CurveBuy") {
+      buy = true;
+      pairAmt = q(a.quoteIn);
+      const tok = k(a.tokensOut);
+      price = tok > 0 ? (pairAmt - q(a.fee) - q(a.tax)) / tok : 0;
+      const who = lc(a.recipient);
+      if (!t.firstBuy.has(who)) t.firstBuy.set(who, l.blockNumber);
+    } else {
+      buy = false;
+      pairAmt = q(a.quoteOut);
+      const tok = k(a.tokensIn);
+      price = tok > 0 ? (pairAmt + q(a.fee) + q(a.tax)) / tok : 0;
+      if (lc(a.seller) === t.deployer) t.devSold = true;
+    }
+    if (price > 0) t.lastPrice = price;
+    t.swaps.push({ ts, price: price || t.lastPrice, buy, pairAmt });
+    t.lastActivity = ts;
+    t.dirty = true;
+    this.trimSwaps(t, ts);
+  }
+
   priceFromSqrt(t, sqrtPriceX96) {
     const r = Number(sqrtPriceX96) / 2 ** 96;
-    const p = r * r; // raw token1 / raw token0
+    const p = r * r; // raw currency1 / raw currency0
     if (!p) return 0;
     const scale = 10 ** (t.decimals - t.pairDecimals);
     return t.isToken0 ? p * scale : (1 / p) * scale;
   }
 
-  onSwap(l, ts) {
-    const t = this.tokens.get(this.pools.get(lc(l.address)));
+  onV4Swap(l, ts) {
+    const t = this.tokens.get(this.v4pools.get(l.args.id));
     if (!t) return;
-    const { amount0, amount1, sqrtPriceX96 } = l.args;
+    const { amount0, amount1, sqrtPriceX96, sender } = l.args;
     const amtTok = t.isToken0 ? amount0 : amount1;
     const amtPair = t.isToken0 ? amount1 : amount0;
-    const price = this.priceFromSqrt(t, sqrtPriceX96);
+    // В V4 дельты — со стороны свопера: >0 получил, <0 отдал
+    const buy = amtTok > 0n;
     const pairAmt = Math.abs(Number(formatUnits(amtPair < 0n ? -amtPair : amtPair, t.pairDecimals)));
-    t.swaps.push({ ts, price, buy: amtTok < 0n, pairAmt });
-    t.lastPrice = price;
+    t.pairBal = Math.max(0, t.pairBal + (buy ? pairAmt : -pairAmt));
+    const price = this.priceFromSqrt(t, sqrtPriceX96);
+    if (price > 0) t.lastPrice = price;
+    t.swaps.push({ ts, price: price || t.lastPrice, buy, pairAmt });
+    if (!buy && lc(sender) === t.deployer) t.devSold = true;
     t.lastActivity = ts;
     t.dirty = true;
-    // держим сутки истории + одну точку до окна для графика
-    const cutoff = ts - DAY;
-    let i = 0;
-    while (i < t.swaps.length - 1 && t.swaps[i + 1].ts < cutoff) i++;
-    if (i > 0) t.swaps.splice(0, i);
+    this.trimSwaps(t, ts);
   }
 
   onTransfer(l, ts) {
@@ -293,8 +398,7 @@ export class PonsIndexer {
     const v = Number(formatUnits(l.args.value, t.decimals));
     if (from !== ZERO) t.balances.set(from, (t.balances.get(from) ?? 0) - v);
     t.balances.set(to, (t.balances.get(to) ?? 0) + v);
-    if (from === t.pool && to !== t.pool && !t.firstBuy.has(to)) t.firstBuy.set(to, l.blockNumber);
-    if (from === t.deployer && to === t.pool) t.devSold = true;
+    if (from === PONS.poolManager && !this.excluded.has(to) && !t.firstBuy.has(to)) t.firstBuy.set(to, l.blockNumber);
     t.lastActivity = Math.max(t.lastActivity, ts);
   }
 
@@ -303,17 +407,23 @@ export class PonsIndexer {
     const todo = [...this.tokens.values()].filter((t) => t.dirty || !t.info);
     await pool(todo, 8, async (t) => {
       try {
-        const [gs, bal, info] = await Promise.all([
-          this.client.readContract({ address: t.factory, abi: FACTORY_ABI, functionName: "graduationStatus", args: [t.address] }).catch(() => null),
-          this.client.readContract({ address: t.pairToken, abi: ERC20_ABI, functionName: "balanceOf", args: [t.pool] }).catch(() => null),
+        const [res, info] = await Promise.all([
+          t.graduated ? null : this.client.readContract({ address: t.curve, abi: CURVE_ABI, functionName: "getReserves" }).catch(() => null),
           t.info ? null : this.client.call({ to: t.address, data: GET_TOKEN_INFO_SELECTOR }).then((r) => parseTokenInfo(r.data)).catch(() => null),
         ]);
-        if (gs) {
-          const [cur, thr, grad] = gs;
-          t.graduated = !!grad;
-          t.progress = grad ? 100 : thr > 0n ? Math.max(0, Math.min(100, Math.round(Number((cur * 10000n) / thr) / 100))) : 0;
+        if (res && !t.graduated) {
+          const q = Number(formatUnits(res[0], t.pairDecimals));
+          const k = Number(formatUnits(res[1], t.decimals));
+          if (k > 0) {
+            t.lastPrice = q / k;
+            t.pairBal = Math.max(0, q - t.phantom);
+            t.progress = Math.max(0, Math.min(99, Math.round((t.pairBal / t.threshold) * 100)));
+          } else {
+            // токены ушли с кривой → graduation (событие могли пропустить)
+            const lt = await this.client.readContract({ address: PONS.factory, abi: FACTORY_ABI, functionName: "getLaunchedToken", args: [t.address] }).catch(() => null);
+            if (lt && Number(lt.phase) >= 2) { t.graduated = true; t.progress = 100; }
+          }
         }
-        if (bal != null) t.pairBal = Number(formatUnits(bal, t.pairDecimals));
         if (info) t.info = info;
         else if (!t.info) t.info = { logo: null, description: null, socials: {} };
         t.dirty = false;
@@ -336,7 +446,11 @@ export class PonsIndexer {
       for (const t of rest.slice(0, this.tokens.size - this.cfg.maxTracked)) this.drop(t);
     }
   }
-  drop(t) { this.tokens.delete(t.address); this.pools.delete(t.pool); }
+  drop(t) {
+    this.tokens.delete(t.address);
+    this.curves.delete(t.curve);
+    if (t.poolId) this.v4pools.delete(t.poolId);
+  }
 
   // ---------- projection to frontend shape ----------
   view(t, now = Date.now() / 1000) {
@@ -346,9 +460,7 @@ export class PonsIndexer {
     const mcap = price * t.supply;
 
     const holders = [];
-    let poolTok = 0;
     for (const [a, b] of t.balances) {
-      if (a === t.pool) { poolTok = b; continue; }
       if (b > 1e-9 && !this.excluded.has(a)) holders.push([a, b]);
     }
     holders.sort((x, y) => y[1] - x[1]);
@@ -364,19 +476,22 @@ export class PonsIndexer {
     const buys = day.filter((s) => s.buy).length;
     const sells = day.length - buys;
     const vol24 = day.reduce((s, x) => s + x.pairAmt, 0) * pairUsd;
-    const liq = t.pairBal * pairUsd + Math.max(0, poolTok) * price;
+    // ликвидность: реальные пар-токены × 2 (вторая сторона — токены по текущей цене)
+    const liq = t.pairBal * 2 * pairUsd;
 
     // 40 точек цены за жизнь токена (максимум сутки)
     const span = Math.max(60, Math.min(DAY, now - t.launchTs));
     const start = now - span;
     const pts = [];
-    let j = 0, last = t.swaps.find((s) => s.ts >= start)?.price ?? t.lastPrice;
+    const startPrice = t.phantom > 0 ? t.phantom / t.supply : t.lastPrice;
+    let j = 0, last = t.swaps.filter((s) => s.ts < start).pop()?.price ?? (t.swaps.length ? startPrice : t.lastPrice);
     for (let k = 0; k < 40; k++) {
       const edge = start + (span * (k + 1)) / 40;
       while (j < t.swaps.length && t.swaps[j].ts <= edge) last = t.swaps[j++].price;
       pts.push((last || t.lastPrice || 1) * pairUsd);
     }
-    const hourAgo = t.swaps.filter((s) => s.ts <= now - 3600).pop()?.price ?? t.swaps[0]?.price ?? t.lastPrice;
+    pts[39] = price || pts[39];
+    const hourAgo = t.swaps.filter((s) => s.ts <= now - 3600).pop()?.price ?? (t.launchTs > now - 3600 ? startPrice : t.swaps[0]?.price) ?? t.lastPrice;
     const chg = hourAgo ? (t.lastPrice / hourAgo - 1) * 100 : 0;
 
     // история дева: прошлые запуски и «рагпуллы» (дев продал, а MC упал >90% от пика)
@@ -398,7 +513,7 @@ export class PonsIndexer {
       address: t.address,
       creator: t.deployer,
       chain: "Robinhood",
-      pool: t.pool,
+      pool: t.poolId ?? t.curve,
       pairSymbol: this.pairs.get(t.pairToken)?.symbol ?? "?",
       graduated: t.graduated,
       progress: t.progress,
@@ -416,7 +531,7 @@ export class PonsIndexer {
       devPrev: prev.length,
       devRugs,
       socials: { x: s.x ?? null, tg: s.tg ?? null, web: s.web ?? null, discord: s.discord ?? null },
-      // Pons отправляет ликвидность выпускника в locker навсегда
+      // Pons навсегда блокирует ликвидность выпускника в locker
       lpBurned: t.graduated ? true : null,
       pts,
       chg,
@@ -449,7 +564,9 @@ export class PonsIndexer {
       cursor: this.cursor?.toString() ?? null,
       syncPct: span ? Math.min(100, Math.round((done / span) * 100)) : 0,
       tracked: this.tokens.size,
+      graduated: [...this.tokens.values()].filter((t) => t.graduated).length,
       ethUsd: this.prices.eth,
+      lastError: this.lastError,
     };
   }
 }

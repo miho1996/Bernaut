@@ -7,53 +7,66 @@ import { GET_TOKEN_INFO_SELECTOR, parseTokenInfo } from "../server/tokeninfo.js"
 import { createApp } from "../server/index.js";
 
 const TOKEN = "0x1000000000000000000000000000000000000001";
-const WETH = "0x9000000000000000000000000000000000000009";
-const POOL = "0x5000000000000000000000000000000000000005";
+const CURVE = "0xc000000000000000000000000000000000000001";
+const TOKEN2 = "0x2000000000000000000000000000000000000002";
+const CURVE2 = "0xc000000000000000000000000000000000000002";
+const POOLID = "0x" + "ab".repeat(32);
 const DEV = "0xdd000000000000000000000000000000000000dd";
 const SNIPER = "0xaa000000000000000000000000000000000000aa";
 const BUYER = "0xbb000000000000000000000000000000000000bb";
+const ZERO = "0x0000000000000000000000000000000000000000";
 const E18 = 10n ** 18n;
+const E15 = 10n ** 15n;
 const LAUNCH = 1000n;
 const NOW = Math.floor(Date.now() / 1000);
+const pad = (a) => "0x" + a.slice(2).padStart(64, "0");
 
 const infoHex = encodeAbiParameters(parseAbiParameters("(address,string,string,string,string,string,string,string)"), [
   [DEV, "ipfs://QmLogo123", "The best frog on Robinhood", "https://x.com/frog", "https://t.me/frog", "", "https://frog.fun", ""],
 ]);
-// цена 1e-6 WETH за токен, токен = token0 → sqrtPriceX96 = sqrt(1e-6) * 2^96
-const SQRT = BigInt(Math.round(1e-3 * 2 ** 96));
+// V4: currency0 = ETH, currency1 = токен; цена 1e-8 ETH за токен → raw token/ETH = 1e8 → sqrt = 1e4 * 2^96
+const SQRT = BigInt(1e4) * 2n ** 96n;
 
 function fakeClient() {
-  const launch = {
-    eventName: "TokenLaunched", address: PONS.factories[0], blockNumber: LAUNCH, logIndex: 0,
-    args: { token: TOKEN, deployer: DEV, dexFactory: "0x1f7d7550b1b028f7571e69a784071f0205fd2efa", pairToken: WETH, pool: POOL, initialBuyAmount: 0n },
-  };
-  const tr = (b, i, from, to, v) => ({ eventName: "Transfer", address: TOKEN, blockNumber: b, logIndex: i, args: { from, to, value: v } });
-  const sw = (b, i, a0, a1) => ({ eventName: "Swap", address: POOL, blockNumber: b, logIndex: i, args: { amount0: a0, amount1: a1, sqrtPriceX96: SQRT } });
+  const ev = (eventName, address, b, i, args, extra = {}) => ({ eventName, address, blockNumber: b, logIndex: i, args, ...extra });
+  const launch = (token, curve, b) => ev("TokenLaunched", PONS.factory, b, 0, { token, curve, deployer: DEV, pairToken: ZERO, launchConfigId: 0n, graduationThreshold: 42n * 10n ** 17n });
+  const tr = (tok, b, i, from, to, v) => ev("Transfer", tok, b, i, { from, to, value: v });
+  const buy = (curve, b, i, who, q, tok) => ev("CurveBuy", curve, b, i, { buyer: who, recipient: who, quoteIn: q, tokensOut: tok, fee: q / 100n, tax: 0n });
+  const sell = (curve, b, i, who, tok, q) => ev("CurveSell", curve, b, i, { seller: who, recipient: who, tokensIn: tok, quoteOut: q, fee: 0n, tax: 0n });
   const logs = [
-    tr(LAUNCH, 1, "0x0000000000000000000000000000000000000000", POOL, 1_000_000_000n * E18),
-    tr(LAUNCH, 2, POOL, DEV, 50_000_000n * E18), sw(LAUNCH, 3, -50_000_000n * E18, 50n * E18),
-    tr(LAUNCH + 2n, 1, POOL, SNIPER, 10_000_000n * E18), sw(LAUNCH + 2n, 2, -10_000_000n * E18, 10n * E18),
-    tr(LAUNCH + 100n, 1, POOL, BUYER, 1_000_000n * E18), sw(LAUNCH + 100n, 2, -1_000_000n * E18, 1n * E18),
-    tr(LAUNCH + 150n, 1, BUYER, POOL, 500_000n * E18), sw(LAUNCH + 150n, 2, 500_000n * E18, -(E18 / 2n)),
+    launch(TOKEN, CURVE, LAUNCH),
+    tr(TOKEN, LAUNCH, 1, ZERO, CURVE, 1_000_000_000n * E18),
+    tr(TOKEN, LAUNCH, 2, CURVE, DEV, 50_000_000n * E18), buy(CURVE, LAUNCH, 3, DEV, 100n * E15, 50_000_000n * E18),
+    tr(TOKEN, LAUNCH + 2n, 1, CURVE, SNIPER, 10_000_000n * E18), buy(CURVE, LAUNCH + 2n, 2, SNIPER, 20n * E15, 10_000_000n * E18),
+    tr(TOKEN, LAUNCH + 100n, 1, CURVE, BUYER, 1_000_000n * E18), buy(CURVE, LAUNCH + 100n, 2, BUYER, 2n * E15, 1_000_000n * E18),
+    tr(TOKEN, LAUNCH + 150n, 1, BUYER, CURVE, 500_000n * E18), sell(CURVE, LAUNCH + 150n, 2, BUYER, 500_000n * E18, 1n * E15),
+    // второй токен: graduation и сделка в Uniswap V4
+    launch(TOKEN2, CURVE2, LAUNCH + 10n),
+    ev("PoolGraduated", PONS.factory, LAUNCH + 160n, 5, { token: TOKEN2, positionId: 1n, tokenAmount: 200_000_000n * E18, pairTokenAmount: 42n * 10n ** 17n }, { transactionHash: "0xgrad" }),
+    ev("Swap", PONS.poolManager, LAUNCH + 170n, 1, { id: POOLID, sender: BUYER, amount0: -1n * E18, amount1: 100_000_000n * E18, sqrtPriceX96: SQRT, liquidity: 1n, tick: 0, fee: 0 }),
   ];
   const head = LAUNCH + 200n;
   return {
     getBlockNumber: async () => head,
     getBlock: async ({ blockNumber }) => ({ timestamp: BigInt(NOW - Number(head - blockNumber)) }),
-    getLogs: async ({ event, fromBlock, toBlock, address }) => {
-      const want = event.name;
+    getLogs: async ({ event, events, fromBlock, toBlock, address, args }) => {
+      const names = (events ?? [event]).map((e) => e.name);
       const addrs = [].concat(address).map((a) => a.toLowerCase());
-      const all = want === "TokenLaunched" ? [launch] : logs.filter((l) => l.eventName === want);
-      return all.filter((l) => l.blockNumber >= fromBlock && l.blockNumber <= toBlock && addrs.includes(l.address.toLowerCase()));
+      return logs.filter((l) => names.includes(l.eventName) && l.blockNumber >= fromBlock && l.blockNumber <= toBlock && addrs.includes(l.address.toLowerCase()) && (!args?.id || args.id.includes(l.args.id)));
+    },
+    getTransactionReceipt: async ({ hash }) => {
+      assert.equal(hash, "0xgrad");
+      return { logs: [{ address: PONS.poolManager, topics: ["0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438", POOLID, pad(ZERO), pad(TOKEN2)] }] };
     },
     readContract: async ({ address, functionName }) => {
       const a = address.toLowerCase();
-      if (functionName === "graduationStatus") return [50n, 100n, false];
-      if (functionName === "symbol") return a === WETH ? "WETH" : "FROG";
+      if (functionName === "pairTokenEconomics") return [168n * 10n ** 16n, 42n * 10n ** 17n, 18];
+      if (functionName === "getReserves") return a === CURVE ? [378n * 10n ** 16n, 939_500_000n * E18] : [168n * 10n ** 16n, 0n];
+      if (functionName === "getLaunchedToken") return { phase: 2 };
+      if (functionName === "symbol") return a === TOKEN ? "FROG" : "TOAD";
       if (functionName === "name") return "Frog <img src=x onerror=alert(1)>";
       if (functionName === "decimals") return 18;
       if (functionName === "totalSupply") return 1_000_000_000n * E18;
-      if (functionName === "balanceOf") return 60n * E18; // WETH в пуле
       throw new Error("unexpected " + functionName);
     },
     call: async ({ data }) => { assert.equal(data, GET_TOKEN_INFO_SELECTOR); return { data: infoHex }; },
@@ -87,28 +100,40 @@ test("parseTokenInfo вытаскивает лого, описание и соц
   assert.equal(i.socials.web, "https://frog.fun");
 });
 
-test("индексатор считает метрики токена", async () => {
+test("индексатор считает метрики токена на кривой", async () => {
   const ix = await syncedIndexer();
-  const [t] = ix.listings();
-  assert.ok(t, "токен есть в листинге");
+  const t = ix.get(TOKEN);
+  assert.ok(t, "токен есть");
   assert.equal(t.ticker, "FROG");
-  assert.ok(Math.abs(t.price - 0.003) < 1e-6, "цена 1e-6 WETH × $3000");
-  assert.ok(Math.abs(t.mcap - 3_000_000) < 10);
-  assert.equal(t.progress, 50);
+  const px = (3.78 / 939_500_000) * 3000;
+  assert.ok(Math.abs(t.price / px - 1) < 1e-9, "цена = quote/token × $ETH");
+  assert.ok(Math.abs(t.mcap - px * 1e9) < 1);
+  assert.equal(t.progress, 50, "(3.78 − 1.68) / 4.2");
   assert.equal(t.graduated, false);
   assert.equal(t.dev, 5);
   assert.equal(t.snipers, 1); // SNIPER купил на 2-м блоке, BUYER на 100-м — не снайпер
-  assert.equal(t.holders, 3);
+  assert.equal(t.holders, 3); // кривая не считается холдером
   assert.ok(Math.abs(t.top10 - 6.05) <= 0.051);
   assert.equal(t.buys, 3);
   assert.equal(t.sells, 1);
-  assert.ok(Math.abs(t.vol24 - 61.5 * 3000) < 1);
+  assert.ok(Math.abs(t.vol24 - 0.123 * 3000) < 1e-6);
+  assert.ok(Math.abs(t.liq - 2.1 * 2 * 3000) < 1e-6);
   assert.equal(t.devPrev, 0);
   assert.equal(t.pts.length, 40);
   assert.equal(t.logo, "https://ipfs.io/ipfs/QmLogo123");
   assert.ok(t.socials.x && t.socials.tg && t.socials.web);
-  // ликвидность = WETH в пуле + токены в пуле по текущей цене
-  assert.ok(Math.abs(t.liq - (60 * 3000 + 939_500_000 * 0.003)) < 10);
+});
+
+test("graduation и сделки в Uniswap V4", async () => {
+  const ix = await syncedIndexer();
+  const t = ix.get(TOKEN2);
+  assert.equal(t.graduated, true);
+  assert.equal(t.progress, 100);
+  assert.equal(t.lpBurned, true);
+  assert.ok(Math.abs(t.price - 1e-8 * 3000) < 1e-12, "цена из sqrtPriceX96");
+  assert.equal(t.buys, 1);
+  assert.ok(Math.abs(t.liq - 5.2 * 2 * 3000) < 1e-6, "4.2 ETH при graduation + 1 ETH покупки");
+  assert.equal(t.devPrev, 1, "у дева был прошлый запуск");
 });
 
 test("HTTP: листинги, статус, AI-обзор и кэш", async () => {
@@ -126,7 +151,7 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
   const base = `http://127.0.0.1:${srv.address().port}`;
   try {
     const l = await (await fetch(base + "/api/listings")).json();
-    assert.equal(l.tokens.length, 1);
+    assert.equal(l.tokens.length, 2);
     const st = await (await fetch(base + "/api/status")).json();
     assert.equal(st.ai, true);
     const html = await (await fetch(base + "/")).text();
