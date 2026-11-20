@@ -150,6 +150,24 @@ test("scoring: wash trading caps the score", async () => {
   assert.ok(score(washed) <= 40, "wash-traded token is capped");
 });
 
+test("AI через OpenRouter", async () => {
+  const ix = await syncedIndexer();
+  let seen;
+  const fakeOR = async (url, opts) => {
+    seen = { url, opts };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: '{"verdict":"enter","confidence":70,"summary":"ok","pros":[],"risks":[],"entry":"-","stop":"-","target":"-","size":"1%"}' } }] }) };
+  };
+  const app = createApp({ indexer: ix, env: { OPENROUTER_API_KEY: "or-key" }, fetchImpl: fakeOR });
+  const srv = http.createServer(app).listen(0);
+  try {
+    const r = await fetch(`http://127.0.0.1:${srv.address().port}/api/review/${TOKEN}`, { method: "POST" });
+    assert.equal((await r.json()).verdict, "enter");
+    assert.equal(seen.url, "https://openrouter.ai/api/v1/chat/completions");
+    assert.equal(seen.opts.headers.authorization, "Bearer or-key");
+    assert.equal(JSON.parse(seen.opts.body).model, "anthropic/claude-sonnet-5.5");
+  } finally { srv.close(); }
+});
+
 test("HTTP: листинги, статус, AI-обзор и кэш", async () => {
   const ix = await syncedIndexer();
   let calls = 0;
@@ -158,6 +176,7 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
     assert.match(url, /api\.anthropic\.com\/v1\/messages/);
     const body = JSON.parse(opts.body);
     assert.match(body.messages[0].content, /"ticker": "FROG"/);
+    assert.match(body.messages[0].content, /in English/);
     return { ok: true, json: async () => ({ content: [{ type: "text", text: 'вот:\n{"verdict":"wait","confidence":61,"summary":"ok","pros":[],"risks":[],"entry":"-","stop":"-","target":"-","size":"1%"}' }] }) };
   };
   const app = createApp({ indexer: ix, env: { ANTHROPIC_API_KEY: "k", REVIEW_RATE_PER_MIN: "1" }, fetchImpl: fakeAnthropic });
@@ -180,6 +199,11 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
     const r2 = await (await fetch(base + `/api/review/${TOKEN}`, { method: "POST" })).json();
     assert.equal(r2.cached, true);
     assert.equal(calls, 1);
+    for (const pg of ["privacy", "terms"]) {
+      const r = await fetch(base + "/" + pg);
+      assert.equal(r.status, 200);
+      assert.match(await r.text(), /Last updated/);
+    }
     const r3 = await fetch(base + `/api/review/0x${"1".repeat(40)}`, { method: "POST" });
     assert.equal(r3.status, 404);
     assert.equal((await fetch(base + "/img?u=" + encodeURIComponent("http://127.0.0.1/x.png"))).status, 400, "внутренние адреса запрещены");

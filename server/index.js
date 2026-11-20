@@ -12,13 +12,13 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { PonsIndexer, defaultConfig } from "./indexer.js";
-import { generateReview } from "./review.js";
+import { generateReview, aiConfig } from "./review.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export function createApp({ indexer, env = process.env, fetchImpl = globalThis.fetch }) {
-  const apiKey = env.ANTHROPIC_API_KEY;
-  const model = env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+  const ai = aiConfig(env);
+  const apiKey = ai?.apiKey;
   const reviewTtl = +(env.REVIEW_CACHE_SEC ?? 300) * 1000;
   const perMin = +(env.REVIEW_RATE_PER_MIN ?? 6);
   const allowOrigin = env.CORS_ORIGIN || "*";
@@ -114,6 +114,11 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
     }
     return listCache;
   }
+  const pages = new Map();
+  async function staticPage(name) {
+    if (!pages.has(name) || env.NODE_ENV === "development") pages.set(name, pack(await readFile(path.join(ROOT, "pages", name + ".html"), "utf8")));
+    return pages.get(name);
+  }
   // Страница с уже вшитыми листингами — рисуется сразу, без второго запроса
   let tpl = null;
   async function pagePacked() {
@@ -135,8 +140,9 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
       if (req.method === "OPTIONS") return send(res, 204, "");
       if (p === "/" || p === "/index.html") return sendPacked(req, res, await pagePacked(), "text/html; charset=utf-8", { "cache-control": "no-cache" });
       if (p === "/healthz") return send(res, 200, { ok: true });
+      if (p === "/privacy" || p === "/terms") return sendPacked(req, res, await staticPage(p.slice(1)), "text/html; charset=utf-8", { "cache-control": "public, max-age=300" });
       if (p === "/img") return proxyImage(url.searchParams.get("u"), res);
-      if (p === "/api/status") return send(res, 200, { ...(indexer?.status() ?? { synced: false, disabled: true }), ai: !!apiKey });
+      if (p === "/api/status") return send(res, 200, { ...(indexer?.status() ?? { synced: false, disabled: true }), ai: !!apiKey, aiProvider: ai?.provider ?? null });
       if (!indexer) return send(res, 503, { error: "indexer disabled: set RPC_URL" });
 
       if (p === "/api/listings") return sendPacked(req, res, listingsPacked().packed, "application/json; charset=utf-8", { "cache-control": "no-store" });
@@ -154,7 +160,7 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
         if (c && Date.now() - c.at < reviewTtl) return send(res, 200, { ...c.data, cached: true });
         const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
         if (limited(ip)) return send(res, 429, { error: "rate_limited" });
-        const data = await generateReview(t, { apiKey, model, fetchImpl });
+        const data = await generateReview(t, { ...ai, fetchImpl });
         reviews.set(addr, { at: Date.now(), data });
         if (reviews.size > 2000) reviews.delete(reviews.keys().next().value);
         return send(res, 200, data);

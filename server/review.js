@@ -51,19 +51,32 @@ export function parseReview(text) {
   return j;
 }
 
-export async function generateReview(t, { apiKey, model, fetchImpl = globalThis.fetch }) {
-  const r = await fetchImpl("https://api.anthropic.com/v1/messages", {
+// Провайдер AI: OpenRouter (OPENROUTER_API_KEY) или напрямую Anthropic (ANTHROPIC_API_KEY).
+export function aiConfig(env = process.env) {
+  if (env.OPENROUTER_API_KEY) return { provider: "openrouter", apiKey: env.OPENROUTER_API_KEY, model: env.OPENROUTER_MODEL || "anthropic/claude-sonnet-5.5", siteUrl: env.SITE_URL || "" };
+  if (env.ANTHROPIC_API_KEY) return { provider: "anthropic", apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_MODEL || "claude-sonnet-5-5" };
+  return null;
+}
+
+export async function generateReview(t, { provider = "anthropic", apiKey, model, siteUrl = "", fetchImpl = globalThis.fetch }) {
+  const prompt = buildPrompt(t);
+  const isOR = provider === "openrouter";
+  const r = await fetchImpl(isOR ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model, max_tokens: 1200, messages: [{ role: "user", content: buildPrompt(t) }] }),
+    headers: isOR
+      ? { "content-type": "application/json", authorization: `Bearer ${apiKey}`, "X-Title": "Pronoia", ...(siteUrl ? { "HTTP-Referer": siteUrl } : {}) }
+      : { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model, max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
   });
   if (!r.ok) {
     const body = await r.text().catch(() => "");
-    const err = new Error(`Anthropic API ${r.status}: ${body.slice(0, 200)}`);
+    const err = new Error(`${isOR ? "OpenRouter" : "Anthropic"} API ${r.status}: ${body.slice(0, 200)}`);
     err.status = r.status;
     throw err;
   }
   const j = await r.json();
-  const text = (j.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+  const text = isOR
+    ? String(j.choices?.[0]?.message?.content ?? "")
+    : (j.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
   return parseReview(text);
 }
