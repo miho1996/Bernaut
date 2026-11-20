@@ -18,7 +18,7 @@ test/               тесты на мок-блокчейне (npm test)
 
 1. New Project → Deploy from GitHub → этот репозиторий. `railway.json` уже настроен (`npm start`, healthcheck `/healthz`).
 2. Variables:
-   - `RPC_URL` — RPC Robinhood Chain (chain id 4663). Без него сайт работает на демо-данных.
+   - `RPC_URL` — RPC Robinhood Chain (chain id 4663). Бесплатный публичный: `https://rpc.mainnet.chain.robinhood.com` (с лимитами). Для нагрузки лучше Alchemy/QuickNode. Без него сайт работает на демо-данных.
    - `ANTHROPIC_API_KEY` — ключ с console.anthropic.com. Без него AI-обзор заменяется алгоритмическим.
    - остальное по желанию, см. `.env.example`.
 3. Settings → Networking → Generate Domain. Сайт и API живут на одном домене.
@@ -48,25 +48,38 @@ AI-обзор строится из метрик, которые сервер п
 
 ## Откуда берутся метрики
 
-Контракты взяты из [Mobula Almanac: Pons](https://docs.mobula.io/almanac/robinhood-launchpads/pons):
+Pons работает на **V2** (V1, то есть фабрики `0xA5aA…1feB` и `0x0c37…77a4`, не используется с осени 2026). Адреса проверены по блокчейну:
 
-- Фабрики `0xA5aA…1feB` (активная) и `0x0c37…77a4` (legacy) → событие `TokenLaunched`
-- Сделки → `Swap` в пулах Uniswap V3, цена из `sqrtPriceX96`
-- `graduationStatus(token)` на фабрике → прогресс кривой и graduation
-- `getTokenInfo()` на токене → лого, описание, X / Telegram / сайт
+| Контракт | Адрес |
+|---|---|
+| PonsV2LaunchFactory | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` |
+| PonsV2LaunchDeployer | `0x3711cea4feade896c913c68f01eda97cb06d1a42` |
+| Uniswap V4 PoolManager | `0x8366a39cc670b4001a1121b8f6a443a643e40951` |
+| Pons hook | `0xe5e702641ea86f4ae6cc3cdaed2b886f976be044` |
+| Locker | `0x267444d099b10fb5ed7c3cc7b7c767adca574952` |
+
+Как устроен V2:
+
+- `TokenLaunched(token, curve, deployer, pairToken, launchConfigId, graduationThreshold)` на фабрике. `pairToken = 0x0` значит нативный ETH.
+- До graduation сделки идут на контракте-кривой: `CurveBuy` и `CurveSell`. `curve.getReserves()` возвращает `(quote, token)`. В `quote` есть «фантомная» ликвидность из `getLaunchConfig(id).phantomQuote` (1.68 ETH). Цена = quote / token, прогресс = (quote − phantom) / threshold (4.2 ETH).
+- Graduation: `PoolGraduated` на фабрике, а в той же транзакции `Initialize` пула Uniswap V4 с хуком Pons. Дальше сделки — это `Swap(id, …)` на PoolManager. Ликвидность навсегда заблокирована в locker.
+- `getTokenInfo()` → `(deployer, logo, description, (twitter, telegram, discord, website, farcaster))`.
 
 | Метрика | Как считается |
 |---|---|
-| Цена, MC | последний `sqrtPriceX96` × цена пар-токена (ETH/BTC из CoinGecko, USD-стейблы = $1) × supply |
-| Ликвидность | пар-токен в пуле + токены в пуле по текущей цене |
-| Холдеры, топ-10 | балансы из `Transfer` (без пула, фабрик, локеров, нулевого адреса) |
+| Цена, MC | резервы кривой (или `sqrtPriceX96` в V4) × цена ETH (CoinGecko) × supply |
+| Ликвидность | реальные ETH в кривой/пуле × 2 |
+| Холдеры, топ-10 | балансы из `Transfer` без кривой, PoolManager, фабрики и locker |
 | Доля дева | баланс деплоера |
-| Снайперы | доля supply у адресов, купивших в первые `SNIPER_BLOCKS` блоков |
-| Покупки/продажи, объём 24ч | `Swap` за последние сутки |
+| Снайперы | доля supply у адресов, купивших в первые `SNIPER_BLOCKS` блоков (блок ≈ 0,1 с) |
+| Покупки/продажи, объём 24ч | `CurveBuy`/`CurveSell` и V4 `Swap` за сутки |
 | История дева | прошлые запуски того же деплоера. Rug — дев продавал, а MC упал больше чем на 90% от пика |
-| Лок LP | после graduation Pons навсегда отправляет ликвидность в locker |
 
-Ограничения: всё хранится в памяти, после рестарта история догоняется заново. История дева видна только по токенам, которые попали в окно индексации. Токены с пар-токеном неизвестной цены (не ETH/BTC/USD) пропускаются, пока для них не задан `PAIR_USD`.
+Ограничения: всё хранится в памяти, и после рестарта сервис заново догоняет последние `BACKFILL_HOURS` (около минуты). Токены старше окна, история дева вне окна и токены V1 не видны. Мёртвые токены (без сделок дольше `DEAD_AFTER_MIN` при прогрессе меньше 10%) убираются из списка.
+
+Логотипы отдаются через `/img?u=…`: браузер блокирует картинки IPFS и gmgn на чужих сайтах. Сервер перебирает несколько IPFS-шлюзов, проверяет, что это действительно картинка, и кэширует результат.
+
+Живая проверка: `npm run check:live`. Тесты (`npm test`) запускаются при каждой сборке на Railway: если они упали, деплой не пойдёт.
 
 ## Оценка
 
