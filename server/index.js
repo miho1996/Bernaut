@@ -1,4 +1,4 @@
-// Bernaut backend: индексатор Pons + API + AI-обзор + раздача сайта.
+// Pronoia backend: индексатор Pons + API + AI-обзор + раздача сайта.
 //
 //   GET  /                     → index.html
 //   GET  /api/status           → состояние синхронизации
@@ -98,5 +98,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.warn("[pons] RPC_URL не задан — индексатор выключен, сайт покажет демо-данные");
   }
   const port = +(process.env.PORT || 8080);
-  http.createServer(createApp({ indexer })).listen(port, () => console.log(`Bernaut on :${port}`));
+  http.createServer(createApp({ indexer })).listen(port, () => console.log(`Pronoia on :${port}`));
 }

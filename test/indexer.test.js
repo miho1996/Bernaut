@@ -130,7 +130,7 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
     const st = await (await fetch(base + "/api/status")).json();
     assert.equal(st.ai, true);
     const html = await (await fetch(base + "/")).text();
-    assert.match(html, /BERNAUT/);
+    assert.match(html, /PRONOIA/);
     const r1 = await fetch(base + `/api/review/${TOKEN}`, { method: "POST" });
     assert.equal(r1.status, 200);
     assert.equal((await r1.json()).verdict, "wait");
