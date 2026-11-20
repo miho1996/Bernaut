@@ -166,6 +166,8 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
     assert.equal(calls, 1);
     const r3 = await fetch(base + `/api/review/0x${"1".repeat(40)}`, { method: "POST" });
     assert.equal(r3.status, 404);
+    assert.equal((await fetch(base + "/img?u=" + encodeURIComponent("http://127.0.0.1/x.png"))).status, 400, "внутренние адреса запрещены");
+    assert.equal((await fetch(base + "/img?u=file:///etc/passwd")).status, 400);
   } finally {
     srv.close();
   }

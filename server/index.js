@@ -24,6 +24,7 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
   const reviews = new Map(); // address → { at, data }
   const hits = new Map(); // ip → [timestamps]
   let listCache = { at: 0, body: null };
+  const imgCache = new Map(); // url → { type, buf }
 
   const send = (res, code, obj, extra = {}) => {
     const body = typeof obj === "string" ? obj : JSON.stringify(obj);
@@ -39,6 +40,34 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
     return a.length > perMin;
   };
 
+  // Прокси логотипов: только https/http картинки до 2 МБ, без внутренних адресов, кэш в памяти.
+  async function proxyImage(u, res) {
+    let target;
+    try { target = new URL(u); } catch { return send(res, 400, { error: "bad url" }); }
+    const h = target.hostname;
+    if (!/^https?:$/.test(target.protocol) || /^(localhost|.*\.local|.*\.internal)$/i.test(h) || /^[\d.]+$/.test(h) || h.includes(":")) return send(res, 400, { error: "bad url" });
+    const key = target.href;
+    let hit = imgCache.get(key);
+    if (!hit) {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 8000);
+      try {
+        const r = await fetchImpl(key, { signal: ctl.signal, redirect: "follow", headers: { accept: "image/*" } });
+        const type = r.headers.get("content-type") || "";
+        if (!r.ok || !/^image\//.test(type)) return send(res, 404, { error: "not an image" });
+        const buf = Buffer.from(await r.arrayBuffer());
+        if (buf.length > 2 * 1024 * 1024) return send(res, 413, { error: "too large" });
+        hit = { type: type.split(";")[0], buf };
+        imgCache.set(key, hit);
+        if (imgCache.size > 600) imgCache.delete(imgCache.keys().next().value);
+      } catch {
+        return send(res, 504, { error: "fetch failed" });
+      } finally { clearTimeout(timer); }
+    }
+    res.writeHead(200, { "content-type": hit.type === "image/svg+xml" ? "image/svg+xml" : hit.type, "cache-control": "public, max-age=86400", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff", "access-control-allow-origin": allowOrigin });
+    res.end(hit.buf);
+  }
+
   return async (req, res) => {
     const url = new URL(req.url, "http://x");
     const p = url.pathname;
@@ -48,6 +77,7 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
         return send(res, 200, await readFile(path.join(ROOT, "index.html"), "utf8"), { "cache-control": "no-cache" });
       }
       if (p === "/healthz") return send(res, 200, { ok: true });
+      if (p === "/img") return proxyImage(url.searchParams.get("u"), res);
       if (p === "/api/status") return send(res, 200, { ...(indexer?.status() ?? { synced: false, disabled: true }), ai: !!apiKey });
       if (!indexer) return send(res, 503, { error: "indexer disabled: set RPC_URL" });
 
