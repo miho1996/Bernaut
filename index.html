@@ -339,7 +339,23 @@ function makeToken(n,i){
   return {id:i,ticker:n[0],name:n[1],emoji:n[2],hue:Math.floor(R()*360),address:hx(),creator:hx(),
     chain:"Robinhood",graduated,progress,ageMin,mcap,holders,top10,dev,snipers,vol24,buys,sells,liq,devPrev,devRugs,socials,lpBurned,pts,chg};
 }
-async function loadListings(){ return NAMES.map(makeToken); }
+// Бэкенд (server/). По умолчанию — тот же домен; можно переопределить window.BERNAUT_API = "https://api.example.com"
+const API=window.BERNAUT_API??(location.protocol.startsWith("http")?"":null);
+let LIVE=false;
+async function fetchLive(){
+  if(API===null) return null;
+  try{const r=await fetch(API+"/api/listings",{cache:"no-store"});if(!r.ok) return null;const j=await r.json();
+    return Array.isArray(j.tokens)&&j.tokens.length?j.tokens.map(clean):null;}catch(e){return null}
+}
+// Названия токенов задаёт кто угодно → убираем всё, что может стать HTML
+function clean(t){const s=v=>String(v??"").replace(/[<>"'`&\\]/g,"");
+  t.ticker=s(t.ticker);t.name=s(t.name);t.emoji=s(t.emoji)||"?";t.description=t.description?s(t.description):null;
+  t.address=s(t.address);t.creator=s(t.creator);t.id=t.address;return t}
+async function loadListings(){
+  const live=await fetchLive();
+  if(live){LIVE=true;return live}
+  return NAMES.map(makeToken);
+}
 
 /* ===================== SCORING ===================== */
 const clamp=(v,a=0,b=10)=>Math.max(a,Math.min(b,v));
@@ -371,7 +387,8 @@ const fm=n=>n>=1e6?"$"+(n/1e6).toFixed(2)+"M":n>=1e3?"$"+(n/1e3).toFixed(1)+"K":
 const fn=n=>n>=1e3?(n/1e3).toFixed(1)+"K":String(n);
 const fage=m=>m<60?m+"m":m<1440?Math.floor(m/60)+"h":m<43200?Math.floor(m/1440)+"d":Math.floor(m/43200)+"mo";
 const pct=c=>`<em class="${c>=0?"up":"down"}">${c>=0?"+":"−"}${Math.abs(c).toFixed(1)}%</em>`;
-const avatar=(t,cls="coin")=>`<div class="${cls}" style="background:linear-gradient(135deg,hsl(${t.hue} 70% 82%),hsl(${(t.hue+40)%360} 65% 62%))">${t.emoji}</div>`;
+const safeUrl=u=>/^https:\/\//i.test(u||"")?u.replace(/"/g,"%22"):null;
+const avatar=(t,cls="coin")=>`<div class="${cls}" style="background:linear-gradient(135deg,hsl(${t.hue} 70% 82%),hsl(${(t.hue+40)%360} 65% 62%));overflow:hidden">${safeUrl(t.logo)?`<img src="${safeUrl(t.logo)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(document.createTextNode('${esc(t.emoji).replace(/'/g,"")}'))">`:esc(t.emoji)}</div>`;
 const dot=t=>`<span class="by-dot" style="background:linear-gradient(135deg,hsl(${(t.hue+180)%360} 40% 70%),hsl(${(t.hue+220)%360} 40% 50%))"></span>`;
 function spark(pts,w=200,h=28,flat){
   const mn=Math.min(...pts),mx=Math.max(...pts),r=mx-mn||1;
@@ -450,7 +467,7 @@ function open(id){
      ${M("Дев держит",t.dev+"%")}
      ${M("Снайперы",t.snipers+"%")}
      ${M("Покупки / продажи",t.buys+" / "+t.sells,`<span class="${bs>=1?"up":"down"}">ratio ${bs}</span>`)}
-     ${M("Кривая бондинга",t.graduated?"Graduated":t.progress+"%",t.graduated?(t.lpBurned?'<span class="up">LP сожжён</span>':'<span class="down">LP не сожжён</span>'):"")}
+     ${M("Кривая бондинга",t.graduated?"Graduated":t.progress+"%",t.graduated?(t.lpBurned?'<span class="up">LP заблокирован</span>':'<span class="down">LP не заблокирован</span>'):"")}
      ${M("Прошлые запуски дева",t.devPrev,t.devPrev?`<span class="${t.devRugs?"down":"up"}">${t.devRugs} rug</span>`:"первый запуск")}
      ${M("Соцсети",[t.socials.x&&"X",t.socials.tg&&"TG",t.socials.web&&"Web"].filter(Boolean).join(" · ")||"нет")}
      ${M("Возраст",fage(t.ageMin))}
@@ -497,6 +514,15 @@ function localReview(t){
 async function runAI(t){
   const btn=document.getElementById("aib"),out=document.getElementById("aiout");
   btn.disabled=true;out.innerHTML=`<div class="thinking"><i></i><span id="th">Bernaut читает метрики…</span></div>`;
+  if(LIVE){
+    try{
+      const r=await fetch(`${API}/api/review/${t.address}`,{method:"POST"});
+      if(r.ok){renderAI(await r.json(),"Обзор сгенерирован Bernaut AI на основе on-chain метрик Pons. Не финансовый совет.");}
+      else if(r.status===429){renderAI(localReview(t),"Слишком много запросов — показан алгоритмический обзор. Попробуйте через минуту.");}
+      else renderAI(localReview(t),"AI сейчас недоступен — показан алгоритмический обзор.");
+    }catch(e){renderAI(localReview(t),"AI сейчас недоступен — показан алгоритмический обзор.");}
+    btn.disabled=false;btn.textContent="Обновить обзор";return;
+  }
   const sample=await getSample();
   if(!sample){renderAI(localReview(t),"Алгоритмический обзор: AI-модель недоступна в этом просмотре.");btn.disabled=false;btn.textContent="Обновить обзор";return}
   const prompt=`Ты — Bernaut, аналитик мемкоинов с лаунчпада Pons (Robinhood Chain). Тебе дают метрики одного токена. Оцени его как опытный on-chain трейдер: ликвидность, концентрацию холдеров, долю дева и снайперов, давление покупок, объём, прогресс бондинг-кривой, историю дева (rug), соцсети, лок LP.
@@ -536,9 +562,22 @@ function tick(){
     const b=document.querySelector(`[data-mc2="${t.id}"]`);if(b){b.textContent=fm(t.mcap);b.className="r num mcap "+(d>=0?"flash-up":"flash-down")}}
 }
 
+// live: раз в 15 секунд забираем свежие листинги с бэкенда
+const scored=a=>a.map(t=>{t.score=score(t);t.verdict=verdictOf(t.score);return t});
+async function poll(){
+  const live=await fetchLive(); if(!live) return;
+  const old=new Map(TOKENS.map(t=>[t.id,t.mcap]));
+  TOKENS=scored(live);
+  renderTrending();renderList();
+  for(const t of TOKENS){const o=old.get(t.id);if(o==null||o===t.mcap)continue;const up=t.mcap>o;
+    const a=document.querySelector(`[data-mc="${t.id}"]`);if(a)a.className="num "+(up?"flash-up":"flash-down");
+    const b=document.querySelector(`[data-mc2="${t.id}"]`);if(b)b.className="r num mcap "+(up?"flash-up":"flash-down");}
+}
+
 (async()=>{
-  TOKENS=(await loadListings()).map(t=>{t.score=score(t);t.verdict=verdictOf(t.score);return t});
-  renderTrending();renderList();setInterval(tick,3000);
+  TOKENS=scored(await loadListings());
+  renderTrending();renderList();
+  if(LIVE) setInterval(poll,15000); else setInterval(tick,3000);
 })();
 </script>
 </body>

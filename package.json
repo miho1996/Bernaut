@@ -1,0 +1,19 @@
+{
+  "name": "bernaut",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Bernaut — AI-анализ листингов Pons (Robinhood Chain)",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "viem": "^2.58.2"
+  }
+}
