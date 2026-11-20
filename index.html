@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bernaut — AI-анализ листингов Pons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FBF8F2; --ink:#1C1A17; --card:#F5F0E6; --card2:#F4EEE3; --bd:#E6DCCD; --line:#EDE5D7;
+  --muted:#5E574D; --faint:#8C8376; --green:#3B8A4E; --red:#B5473B; --amber:#B07A2A; --gold:#8A7350;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+.num{font-family:Nunito,Figtree,system-ui,sans-serif;font-weight:800}
+
+/* header */
+header.top{position:sticky;top:0;z-index:30;padding:12px 32px 24px;background:linear-gradient(var(--bg) 70%,rgba(251,248,242,0))}
+.bar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:0 1px 2px rgba(28,26,23,.04)}
+.brand{display:flex;align-items:center;gap:8px;font-size:24px;font-weight:600;letter-spacing:-.01em}
+.brand svg{width:35px;height:35px}
+nav.links{display:flex;align-items:center;gap:4px}
+nav.links a{height:52px;display:inline-flex;align-items:center;padding:0 14px;border-radius:12px;font-weight:600;color:var(--muted)}
+nav.links a:hover{background:var(--card)}
+.btn-ink{background:var(--ink)!important;color:var(--bg)!important;padding:0 22px!important}
+.btn-ink:hover{opacity:.9}
+
+/* hero */
+.hero{position:relative;height:300px;margin-top:-104px;padding-top:104px;overflow:hidden;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#F7F2E9 0%,#F4EEE3 100%)}
+.slides{position:relative;height:100%}
+.slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:56px;opacity:0;transition:opacity .6s}
+.slide.on{opacity:1}
+.slide h1{font-size:52px;line-height:1;font-weight:800;letter-spacing:-.02em}
+.slide h1 span{color:var(--gold)}
+.slide p{font-size:30px;font-weight:500;margin-top:8px;display:flex;align-items:center;gap:10px;color:var(--ink)}
+.slide p i{display:inline-flex;gap:3px}
+.slide p i b{width:5px;height:16px;background:var(--ink);border-radius:1px}
+.blob{position:absolute;border-radius:50%;filter:blur(40px);opacity:.55}
+.mock{width:300px;background:#fff;border:1px solid var(--bd);border-radius:20px;padding:16px;transform:rotate(4deg);box-shadow:0 24px 50px -20px rgba(28,26,23,.25)}
+.mock .row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);padding:6px 0;border-bottom:1px dashed var(--line)}
+.mock .row:last-child{border:0}
+.dots{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px}
+.dots b{width:8px;height:5px;border-radius:3px;background:#C9BFAF;cursor:pointer;transition:width .3s}
+.dots b.on{width:16px;background:var(--ink)}
+
+main.wrap{padding:56px 32px 24px;max-width:1280px;margin:0 auto}
+.head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+.head h2{font-size:44px;font-weight:600;letter-spacing:-.02em}
+.head .sub{color:var(--faint);font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.live{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(59,138,78,.5);animation:pulse 1.8s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(59,138,78,0)}100%{box-shadow:0 0 0 0 rgba(59,138,78,0)}}
+
+/* cards */
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.coin-card{display:flex;flex-direction:column;justify-content:space-between;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:16px;min-height:216px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.coin-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(28,26,23,.35)}
+.v-top{display:flex;gap:12px}
+.coin{width:48px;height:48px;border-radius:14px;flex:none;display:grid;place-items:center;font-size:24px;box-shadow:0 0 0 3px rgba(255,255,255,.8)}
+.v-name{min-width:0}
+.v-name h3{font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-name p{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.by{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--muted);margin-top:2px}
+.by-dot{width:18px;height:18px;border-radius:6px;display:inline-block}
+.age{color:var(--faint)}
+.mc span{font-size:12px;color:var(--muted)}
+.mc b{display:flex;align-items:baseline;gap:8px;font-size:22px}
+.mc em{font-style:normal;font-size:14px}
+.up{color:var(--green)}.down{color:var(--red)}
+.spark{display:block;width:100%;height:28px;margin-top:6px}
+.card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+
+.verdict{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+.verdict i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.v-enter{background:#E3EFDF;color:var(--green)}
+.v-wait{background:#F3E8D2;color:var(--amber)}
+.v-avoid{background:#F3DFDA;color:var(--red)}
+.score{font-family:Nunito;font-weight:900;font-size:13px;color:var(--muted)}
+
+/* all coins */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.seg{display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px}
+.seg button{height:36px;padding:0 16px;border-radius:10px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.pill{height:36px;padding:0 10px 0 12px;border-radius:10px;background:#fff;font-size:14px;font-weight:600;box-shadow:0 1px 2px rgba(28,26,23,.08);border:1px solid var(--line);display:inline-flex;align-items:center;gap:6px;position:relative}
+.pill select{appearance:none;border:0;background:transparent;font:inherit;font-weight:600;color:var(--ink);padding-right:18px;cursor:pointer;outline:none}
+.pill:after{content:"";position:absolute;right:12px;top:15px;width:6px;height:6px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);pointer-events:none}
+.views{display:flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:0 1px 2px rgba(28,26,23,.08)}
+.views button{width:30px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--muted)}
+.views button.on{background:var(--card);color:var(--ink)}
+.search{height:40px;width:250px;border-radius:12px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--faint)}
+.search input{border:0;outline:none;background:transparent;font:inherit;font-size:14px;width:100%;color:var(--ink)}
+
+.table-wrap{margin-top:16px;background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:6px 10px}
+table{width:100%;border-collapse:collapse}
+th{font-size:12px;font-weight:600;color:var(--faint);text-align:left;padding:8px 14px 4px}
+th.r,td.r{text-align:right}
+td{padding:10px 14px;border-top:1px solid transparent}
+tbody tr{cursor:pointer;height:68px}
+tbody tr:hover td{background:rgba(255,255,255,.55)}
+tbody tr:hover td:first-child{border-radius:14px 0 0 14px}
+tbody tr:hover td:last-child{border-radius:0 14px 14px 0}
+.c-idx{color:var(--muted);font-size:13px;width:46px}
+.c-coin{display:flex;align-items:center;gap:12px;font-weight:600}
+.c-img{width:48px;height:48px;border-radius:10px;font-size:22px;display:grid;place-items:center;box-shadow:0 0 0 3px rgba(255,255,255,.8)}
+.c-coin b{font-size:16px;font-weight:800}
+.c-coin b em{font-style:normal;font-weight:500;color:var(--muted);margin-left:6px}
+.c-coin small{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--muted);margin-top:2px}
+.c-chain{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--muted)}
+.rh{width:14px;height:14px;border-radius:50%;background:#C8F542;display:grid;place-items:center}
+.prog{width:90px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;display:inline-block;vertical-align:middle}
+.prog i{display:block;height:100%;background:var(--ink);border-radius:3px}
+.mcap{font-size:17px}
+.more{display:block;margin:16px auto 0;height:44px;padding:0 22px;border-radius:12px;background:#fff;border:1px solid var(--line);font-weight:600;color:var(--muted)}
+.more:hover{color:var(--ink)}
+.empty{text-align:center;color:var(--faint);padding:40px}
+
+/* how */
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+.how div{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:22px}
+.how b{font-family:Nunito;font-weight:900;font-size:30px;color:var(--gold)}
+.how h4{font-size:18px;font-weight:700;margin:8px 0 6px}
+.how p{color:var(--muted);line-height:1.5;font-size:14px}
+
+/* footer */
+footer.site-foot{margin-top:72px;border-top:1px solid var(--line);padding:56px 32px 32px}
+.f-in{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px}
+.f-in h5{font-size:12px;letter-spacing:.12em;color:var(--faint);font-weight:700;margin-bottom:14px}
+.f-in p{color:var(--muted);line-height:1.6;font-size:14px;max-width:380px;margin-bottom:12px}
+.f-in a{display:block;color:var(--muted);font-weight:500;margin-bottom:10px;font-size:14px}
+.f-in a:hover{color:var(--ink)}
+.f-big{font-size:96px;font-weight:800;letter-spacing:-.04em;color:var(--card);-webkit-text-stroke:1px var(--bd);max-width:1280px;margin:48px auto 0;line-height:1}
+.f-bot{max-width:1280px;margin:24px auto 0;display:flex;justify-content:space-between;color:var(--faint);font-size:13px}
+
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(28,26,23,.35);backdrop-filter:blur(3px);z-index:50;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px}
+.ov.on{display:flex}
+.panel{width:min(920px,100%);background:var(--bg);border-radius:24px;border:1px solid var(--bd);box-shadow:0 30px 80px -30px rgba(28,26,23,.5);padding:24px;position:relative;animation:rise .25s ease}
+@keyframes rise{from{transform:translateY(12px);opacity:0}}
+.x{position:absolute;right:16px;top:16px;width:36px;height:36px;border-radius:10px;background:var(--card);font-size:18px;color:var(--muted)}
+.p-head{display:flex;align-items:center;gap:16px}
+.p-head .coin{width:64px;height:64px;font-size:32px;border-radius:18px}
+.p-head h3{font-size:26px;font-weight:800}
+.p-head p{color:var(--muted);font-size:14px}
+.p-top{display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px;gap:20px;flex-wrap:wrap}
+.p-top .mc b{font-size:34px}
+.big-verdict{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 16px}
+.ring{width:56px;height:56px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:20px}
+.m{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px}
+.m span{font-size:12px;color:var(--muted);display:block}
+.m b{font-size:19px;display:block;margin-top:2px}
+.m small{font-size:12px;font-weight:600}
+.sec-t{font-size:13px;letter-spacing:.1em;color:var(--faint);font-weight:700;margin:24px 0 10px}
+.breakdown{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px}
+.bk{display:grid;grid-template-columns:150px 1fr 34px;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.bk .track{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bk .track i{display:block;height:100%;border-radius:3px}
+.bk b{font-family:Nunito;font-weight:900;color:var(--ink);text-align:right}
+.ai{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-top:10px}
+.ai-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ai-h h4{font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px}
+.ai-btn{height:44px;padding:0 20px;border-radius:12px;background:var(--ink);color:var(--bg);font-weight:600}
+.ai-btn:disabled{opacity:.5;cursor:wait}
+.ai-body{margin-top:14px;color:var(--ink);line-height:1.6;font-size:14.5px}
+.ai-body .lead{font-size:16px;font-weight:600}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.cols div{background:var(--card);border-radius:14px;padding:14px}
+.cols h6{font-size:12px;letter-spacing:.08em;font-weight:800;margin-bottom:8px}
+.cols li{margin-left:16px;color:var(--muted);font-size:14px;margin-bottom:4px}
+.plan{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.plan span{background:var(--card);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--muted)}
+.plan b{color:var(--ink)}
+.thinking{display:flex;align-items:center;gap:10px;color:var(--muted);margin-top:14px}
+.thinking i{width:16px;height:16px;border:2px solid var(--bd);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.note{font-size:12px;color:var(--faint);margin-top:12px}
+.p-actions{display:flex;gap:10px;margin-top:18px}
+.p-actions a{height:44px;display:inline-flex;align-items:center;padding:0 18px;border-radius:12px;font-weight:600;background:var(--card);border:1px solid var(--bd)}
+.flash-up{animation:fu 1s}.flash-down{animation:fd 1s}
+@keyframes fu{0%{color:var(--green)}}@keyframes fd{0%{color:var(--red)}}
+
+@media (max-width:1100px){.grid{grid-template-columns:repeat(3,1fr)}.metrics{grid-template-columns:repeat(2,1fr)}.f-in{grid-template-columns:1fr 1fr}}
+@media (max-width:720px){
+  header.top{padding:10px 12px 18px} nav.links a.hide-m{display:none}
+  main.wrap{padding:40px 14px} .grid{grid-template-columns:repeat(2,1fr)} .head h2{font-size:32px}
+  .slide{flex-direction:column;gap:16px}.slide h1{font-size:36px}.slide p{font-size:20px}.mock{display:none}
+  .col-graph,.col-score{display:none} .search{width:100%} .breakdown,.cols,.how{grid-template-columns:1fr}
+  .f-big{font-size:56px}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="bar">
+    <a class="brand" href="#">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#1C1A17"/><path d="M9 19a11 11 0 0 1 22 0v3a5 5 0 0 1-5 5H14a5 5 0 0 1-5-5z" fill="#FBF8F2"/><path d="M12 20a8 6 0 0 1 16 0v1a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z" fill="#8A7350"/><circle cx="16" cy="19" r="1.6" fill="#FBF8F2"/><path d="M31 8l2-3M33 11l3-1" stroke="#1C1A17" stroke-width="2" stroke-linecap="round"/></svg>
+      Bernaut
+    </a>
+    <nav class="links">
+      <a class="hide-m" href="#picks">AI Picks</a>
+      <a class="hide-m" href="#how">Как это работает</a>
+      <a class="btn-ink" href="#all">Анализ листингов</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="blob" style="width:340px;height:220px;background:#E9DCC3;left:-80px;top:120px"></div>
+  <div class="blob" style="width:300px;height:200px;background:#EADFCB;right:10%;bottom:-80px"></div>
+  <div class="slides">
+    <div class="slide on">
+      <div>
+        <h1>Bernaut <span>AI</span></h1>
+        <p><i><b></b><b></b><b></b><b></b><b></b><b></b><b></b></i> Читает каждый листинг Pons</p>
+      </div>
+      <div class="mock" id="mock"></div>
+    </div>
+    <div class="slide">
+      <div>
+        <h1>Заходить <span>или нет?</span></h1>
+        <p>12 метрик · один вердикт · за секунды</p>
+      </div>
+    </div>
+    <div class="slide">
+      <div>
+        <h1>Robinhood <span>Chain</span></h1>
+        <p>Все запуски с лаунчпада Pons в одном месте</p>
+      </div>
+    </div>
+  </div>
+  <div class="dots" id="dots"><b class="on"></b><b></b><b></b></div>
+</section>
+
+<main class="wrap">
+  <section id="picks">
+    <div class="head">
+      <h2>AI Picks</h2>
+      <div class="sub"><span class="live"></span> Лучшие оценки Bernaut прямо сейчас</div>
+    </div>
+    <div class="grid" id="trending"></div>
+  </section>
+
+  <section id="all" style="margin-top:64px">
+    <div class="head" style="flex-wrap:wrap;gap:14px">
+      <h2 style="font-size:32px">Все листинги</h2>
+      <div class="toolbar">
+        <div class="seg" id="tabs">
+          <button data-t="mcap" class="on">Market cap</button>
+          <button data-t="new">New</button>
+          <button data-t="active">Active</button>
+          <button data-t="near">Near graduation</button>
+          <button data-t="grad">Graduated</button>
+        </div>
+        <label class="pill">
+          <select id="vf">
+            <option value="all">Все вердикты</option>
+            <option value="enter">Заходить</option>
+            <option value="wait">Ждать</option>
+            <option value="avoid">Пропустить</option>
+          </select>
+        </label>
+        <div class="views" id="views">
+          <button data-v="list" class="on" title="Список"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect y="1" width="2" height="2" rx="1"/><rect x="4" y="1" width="10" height="2" rx="1"/><rect y="6" width="2" height="2" rx="1"/><rect x="4" y="6" width="10" height="2" rx="1"/><rect y="11" width="2" height="2" rx="1"/><rect x="4" y="11" width="10" height="2" rx="1"/></svg></button>
+          <button data-v="grid" title="Сетка"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg></button>
+        </div>
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+          <input id="q" placeholder="Поиск по имени или тикеру">
+        </div>
+      </div>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section id="how" style="margin-top:72px">
+    <div class="head"><h2 style="font-size:32px">Как это работает</h2></div>
+    <div class="how">
+      <div><b>01</b><h4>Выгружаем Pons</h4><p>Каждый новый токен с лаунчпада Pons на Robinhood Chain попадает в Bernaut: капитализация, объёмы, холдеры, кривая бондинга, история дева.</p></div>
+      <div><b>02</b><h4>Считаем 12 метрик</h4><p>Ликвидность, концентрация холдеров, доля дева и снайперов, давление покупок, активность, соцсети, прошлые запуски автора — каждая метрика получает оценку.</p></div>
+      <div><b>03</b><h4>AI даёт вердикт</h4><p>Модель читает все метрики вместе, объясняет плюсы и риски и говорит: заходить, ждать или пропустить. С уровнями входа и стопа.</p></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="f-in">
+    <div>
+      <h5>BERNAUT</h5>
+      <p>Bernaut — AI-аналитик для листингов лаунчпада Pons на Robinhood Chain. Мы собираем on-chain данные каждого запуска, оцениваем токен по 12 метрикам и даём понятный вердикт: заходить или нет.</p>
+      <p>Bernaut не является финансовым советником. Мемкоины крайне волатильны — решения вы принимаете сами.</p>
+    </div>
+    <div><h5>ПЛАТФОРМА</h5><a href="#all">Все листинги</a><a href="#picks">AI Picks</a><a href="#how">Методология</a><a href="#all">Watchlist</a></div>
+    <div><h5>РЕСУРСЫ</h5><a href="#how">Документация</a><a href="https://pons.family/launchpad">Pons Launchpad</a><a href="#">Brand kit</a><a href="#">Privacy policy</a></div>
+    <div><h5>СООБЩЕСТВО</h5><a href="#">Telegram</a><a href="#">X</a><a href="#">Discord</a></div>
+  </div>
+  <div class="f-big">BERNAUT</div>
+  <div class="f-bot"><span>Bernaut © 2026. Все права защищены.</span><span>Privacy policy · Terms of use</span></div>
+</footer>
+
+<div class="ov" id="ov"><div class="panel" id="panel"></div></div>
+
+<script>
+/* ===================== DATA LAYER =====================
+   Сейчас: демо-листинги в формате Pons (Robinhood Chain).
+   Прод: заменить loadListings() на запрос к вашему бэкенду,
+   который индексирует контракт фабрики Pons / API Pons и
+   возвращает массив объектов той же формы.               */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=rng(20261120);
+const pick=a=>a[Math.floor(R()*a.length)];
+const NAMES=[["HOODIE","Hoodie Frog","🐸"],["VLAD","Vlad Runner","🏃"],["FEATHER","Green Feather","🪶"],["STONK","Stonk Cat","🐱"],["RHOOD","Robin Dog","🐶"],["GME2","Gamestop 2","🎮"],["MOON","Moon Mission","🌕"],["BAG","Bag Holder","💰"],["APE","Hood Ape","🦍"],["ZERO","Zero Fee","0️⃣"],["CANDLE","Green Candle","🕯️"],["DIAMOND","Diamond Paws","💎"],["YOLO","Yolo Options","🎲"],["MEME","Meme Index","📈"],["BULLR","Bull Run","🐂"],["BEAR","Sad Bear","🐻"],["PEPE2","Pepe on Hood","🐸"],["CHAD","Chad Trader","💪"],["NOODLE","Noodle Cat","🍜"],["PIZZA","Pizza Day","🍕"],["FROGG","Froggo","🐊"],["DUCK","Quack Capital","🦆"],["ROCKET","Rocket Hood","🚀"],["GOLD","Golden Goose","🪿"],["ALIEN","Alien Desk","👽"],["SNAIL","Slow Snail","🐌"],["BONK2","Bonk Hood","🔨"],["WIF","Hat on Hood","🎩"],["MAGA","Market Go Up","⬆️"],["DOGE3","Doge Three","🐕"],["CORN","Corn Farmer","🌽"],["TACO","Taco Tuesday","🌮"],["WHALE","Whale Alert","🐳"],["SHRIMP","Shrimp Army","🦐"],["LAMBO","Lambo Soon","🏎️"],["RUG","Not a Rug","🧶"],["BANANA","Banana Zone","🍌"],["PONK","Ponk","🟢"],["ROBO","Robo Advisor","🤖"],["KOALA","Koala Coin","🐨"],["FIRE","Burn Baby","🔥"],["ICE","Ice Cold","🧊"],["OTTER","Otter Labs","🦦"],["SAMU","Samurai","⚔️"],["NINJA","Hood Ninja","🥷"],["GHOST","Ghost Chain","👻"],["CROWN","King of Hood","👑"],["PANDA","Panda Pump","🐼"],["SUSHI2","Sushi Bar","🍣"],["CAPY","Capybara","🦫"],["UNI","Unicorn Hood","🦄"],["BEE","Busy Bee","🐝"],["WOLF","Wolf of Hood","🐺"],["CHEF","Chef Curve","👨‍🍳"],["ORBIT","Orbit","🪐"],["CLOWN","Clown Market","🤡"],["SKULL","Skull Season","💀"],["PUMP","Pump It","⛽"],["TOAD","Toad King","🐸"],["LEAF","Leaf Coin","🍃"]];
+const hx=()=>"0x"+[...Array(40)].map(()=>"0123456789abcdef"[Math.floor(R()*16)]).join("");
+const short=a=>a.slice(0,4)+"…"+a.slice(-4);
+
+function makeToken(n,i){
+  const graduated=R()<.22;
+  const progress=graduated?100:Math.round(Math.pow(R(),.8)*99);
+  const ageMin=Math.floor(Math.pow(R(),2.2)*60*24*45)+3;
+  const mcap=graduated? 69000+Math.pow(R(),2)*4e6 : 3000+progress/100*60000*(.6+R()*.6);
+  const holders=Math.round(20+Math.pow(R(),1.5)*(graduated?6000:900));
+  const top10=Math.round(12+Math.pow(R(),1.3)*70);
+  const dev=+(Math.pow(R(),2)*18).toFixed(1);
+  const snipers=+(Math.pow(R(),1.6)*30).toFixed(1);
+  const vol24=mcap*(.05+Math.pow(R(),1.4)*2.4);
+  const buys=Math.round(10+R()*800*(holders/400+.2)), sells=Math.round(buys*(.35+R()*1.3));
+  const liq=graduated? mcap*(.08+R()*.25) : mcap*(.15+R()*.2);
+  const devPrev=Math.floor(Math.pow(R(),2)*9), devRugs=devPrev?Math.floor(R()*(devPrev+1)*.7):0;
+  const socials={x:R()<.75,tg:R()<.55,web:R()<.35};
+  const lpBurned=graduated?R()<.8:null;
+  const trend=(R()-.42)*2;
+  const pts=[];let p=1;for(let k=0;k<40;k++){p*=1+(R()-.5+trend*.04)*.12;pts.push(p)}
+  const chg=(pts[39]/pts[30]-1)*100;
+  return {id:i,ticker:n[0],name:n[1],emoji:n[2],hue:Math.floor(R()*360),address:hx(),creator:hx(),
+    chain:"Robinhood",graduated,progress,ageMin,mcap,holders,top10,dev,snipers,vol24,buys,sells,liq,devPrev,devRugs,socials,lpBurned,pts,chg};
+}
+async function loadListings(){ return NAMES.map(makeToken); }
+
+/* ===================== SCORING ===================== */
+const clamp=(v,a=0,b=10)=>Math.max(a,Math.min(b,v));
+function metrics(t){
+  const bs=t.buys/Math.max(1,t.sells);
+  return [
+    ["Ликвидность / MC", clamp(t.liq/t.mcap*40), 1.2],
+    ["Концентрация топ-10", clamp(10-(t.top10-15)/6), 1.4],
+    ["Доля дева", clamp(10-t.dev*0.8), 1.3],
+    ["Снайперы", clamp(10-t.snipers/2.5), 1.1],
+    ["Холдеры", clamp(Math.log10(t.holders)*3.2-2), 1],
+    ["Давление покупок", clamp(bs*5), 1.1],
+    ["Объём / MC", clamp(t.vol24/t.mcap*6), .9],
+    ["Кривая бондинга", t.graduated?8:clamp(t.progress/10), .8],
+    ["Возраст токена", clamp(t.ageMin<30?3:t.ageMin<360?7:t.ageMin<4320?9:6), .5],
+    ["Соцсети", (t.socials.x?4:0)+(t.socials.tg?3:0)+(t.socials.web?3:0), .6],
+    ["История дева", t.devPrev===0?6:clamp(10-t.devRugs/t.devPrev*12), 1.3],
+    ["Лок / burn LP", t.graduated?(t.lpBurned?10:1):6, .8]
+  ];
+}
+function score(t){const m=metrics(t);let s=0,w=0;m.forEach(([,v,k])=>{s+=v*k;w+=k});let sc=Math.round(s/w*10);
+  if(t.devRugs>=2) sc=Math.min(sc,38); if(t.graduated&&!t.lpBurned) sc=Math.min(sc,44); return sc;}
+function verdictOf(sc){return sc>=66?"enter":sc>=46?"wait":"avoid"}
+const VL={enter:"Заходить",wait:"Ждать",avoid:"Пропустить"};
+const vBadge=v=>`<span class="verdict v-${v}"><i></i>${VL[v]}</span>`;
+
+/* ===================== FORMAT ===================== */
+const fm=n=>n>=1e6?"$"+(n/1e6).toFixed(2)+"M":n>=1e3?"$"+(n/1e3).toFixed(1)+"K":"$"+n.toFixed(2);
+const fn=n=>n>=1e3?(n/1e3).toFixed(1)+"K":String(n);
+const fage=m=>m<60?m+"m":m<1440?Math.floor(m/60)+"h":m<43200?Math.floor(m/1440)+"d":Math.floor(m/43200)+"mo";
+const pct=c=>`<em class="${c>=0?"up":"down"}">${c>=0?"+":"−"}${Math.abs(c).toFixed(1)}%</em>`;
+const avatar=(t,cls="coin")=>`<div class="${cls}" style="background:linear-gradient(135deg,hsl(${t.hue} 70% 82%),hsl(${(t.hue+40)%360} 65% 62%))">${t.emoji}</div>`;
+const dot=t=>`<span class="by-dot" style="background:linear-gradient(135deg,hsl(${(t.hue+180)%360} 40% 70%),hsl(${(t.hue+220)%360} 40% 50%))"></span>`;
+function spark(pts,w=200,h=28,flat){
+  const mn=Math.min(...pts),mx=Math.max(...pts),r=mx-mn||1;
+  const d=pts.map((p,i)=>`${(i/(pts.length-1)*w).toFixed(1)},${(h-2-(p-mn)/r*(h-4)).toFixed(1)}`).join(" ");
+  const up=pts[pts.length-1]>=pts[0];
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${d}" fill="none" stroke="${flat?"#D9CFBF":up?"#3B8A4E":"#B5473B"}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+/* ===================== RENDER ===================== */
+let TOKENS=[],state={tab:"mcap",v:"all",q:"",view:"list",limit:25};
+function card(t){
+  return `<a class="coin-card" data-id="${t.id}">
+    <div class="v-top">${avatar(t)}<div class="v-name"><h3>$${t.ticker}</h3><p>${t.name}</p>
+      <p class="by">${dot(t)}${short(t.creator)} <span class="age">${fage(t.ageMin)}</span></p></div></div>
+    <div><div class="mc"><span>Market cap</span><b class="num" data-mc="${t.id}">${fm(t.mcap)}${pct(t.chg)}</b></div>${spark(t.pts)}
+    <div class="card-foot">${vBadge(t.verdict)}<span class="score">${t.score}/100</span></div></div></a>`;
+}
+function renderTrending(){
+  const top=[...TOKENS].sort((a,b)=>b.score-a.score||b.vol24-a.vol24).slice(0,10);
+  document.getElementById("trending").innerHTML=top.map(card).join("");
+  const t=top[0];
+  document.getElementById("mock").innerHTML=`<div style="display:flex;gap:10px;align-items:center">${avatar(t)}<div><b style="font-weight:800">$${t.ticker}</b><div style="font-size:12px;color:var(--muted)">${t.name}</div></div><div style="margin-left:auto">${vBadge(t.verdict)}</div></div>
+   <div style="margin-top:10px">${metrics(t).slice(0,4).map(([k,v])=>`<div class="row"><span>${k}</span><b class="num" style="color:var(--ink)">${v.toFixed(1)}</b></div>`).join("")}</div>`;
+}
+function filtered(){
+  let a=[...TOKENS];
+  if(state.tab==="new") a.sort((x,y)=>x.ageMin-y.ageMin);
+  else if(state.tab==="active") a.sort((x,y)=>(y.buys+y.sells)-(x.buys+x.sells));
+  else if(state.tab==="near") a=a.filter(t=>!t.graduated&&t.progress>=55).sort((x,y)=>y.progress-x.progress);
+  else if(state.tab==="grad") a=a.filter(t=>t.graduated).sort((x,y)=>y.mcap-x.mcap);
+  else a.sort((x,y)=>y.mcap-x.mcap);
+  if(state.v!=="all") a=a.filter(t=>t.verdict===state.v);
+  const q=state.q.trim().toLowerCase();
+  if(q) a=a.filter(t=>t.ticker.toLowerCase().includes(q)||t.name.toLowerCase().includes(q)||t.address.includes(q));
+  return a;
+}
+function renderList(){
+  const a=filtered(),shown=a.slice(0,state.limit),el=document.getElementById("list");
+  if(!a.length){el.innerHTML=`<div class="table-wrap"><div class="empty">Ничего не найдено</div></div>`;return}
+  let html;
+  if(state.view==="grid") html=`<div class="grid" style="margin-top:16px">${shown.map(card).join("")}</div>`;
+  else html=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Coin</th><th>Chain</th><th class="col-score">Bonding</th><th class="col-score">AI score</th><th>Вердикт</th><th class="col-graph">Graph</th><th class="r">Market cap</th></tr></thead><tbody>${
+    shown.map((t,i)=>`<tr data-id="${t.id}"><td class="c-idx">${i+1}</td>
+      <td><div class="c-coin">${avatar(t,"c-img")}<div><b>$${t.ticker}<em>${t.name}</em></b><small>${dot(t)}${short(t.address)} <span class="age">${fage(t.ageMin)}</span></small></div></div></td>
+      <td><span class="c-chain"><span class="rh"></span>Robinhood</span></td>
+      <td class="col-score">${t.graduated?`<span class="c-chain">Graduated</span>`:`<span class="prog"><i style="width:${t.progress}%"></i></span> <span class="c-chain" style="margin-left:6px">${t.progress}%</span>`}</td>
+      <td class="col-score"><span class="num" style="font-size:16px">${t.score}</span><span style="color:var(--faint);font-size:12px">/100</span></td>
+      <td>${vBadge(t.verdict)}</td>
+      <td class="col-graph" style="width:140px">${spark(t.pts,120,18)}</td>
+      <td class="r num mcap" data-mc2="${t.id}">${fm(t.mcap)}</td></tr>`).join("")}</tbody></table></div>`;
+  if(a.length>state.limit) html+=`<button class="more" id="more">Показать ещё (${shown.length} из ${a.length})</button>`;
+  el.innerHTML=html;
+  const m=document.getElementById("more"); if(m) m.onclick=()=>{state.limit+=25;renderList()};
+}
+
+/* ===================== DETAIL + AI ===================== */
+let samplePromise=null;
+function getSample(){ if(!samplePromise) samplePromise=(window.claude&&window.claude.use)?window.claude.use("sample").catch(()=>null):Promise.resolve(null); return samplePromise; }
+function ring(sc,v){const c=v==="enter"?"#3B8A4E":v==="wait"?"#B07A2A":"#B5473B",r=24,L=2*Math.PI*r;
+  return `<svg class="ring" viewBox="0 0 56 56"><circle cx="28" cy="28" r="${r}" fill="none" stroke="#EDE5D7" stroke-width="5"/><circle cx="28" cy="28" r="${r}" fill="none" stroke="${c}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${L*sc/100} ${L}" transform="rotate(-90 28 28)"/><text x="28" y="33" text-anchor="middle" font-family="Nunito" font-weight="900" font-size="16" fill="#1C1A17">${sc}</text></svg>`}
+function open(id){
+  const t=TOKENS.find(x=>x.id==id); if(!t) return;
+  const bs=(t.buys/Math.max(1,t.sells)).toFixed(2);
+  const M=(k,v,s="")=>`<div class="m"><span>${k}</span><b class="num">${v}</b>${s?`<small>${s}</small>`:""}</div>`;
+  document.getElementById("panel").innerHTML=`<button class="x" id="x">✕</button>
+   <div class="p-head">${avatar(t)}<div><h3>$${t.ticker} <span style="font-weight:500;color:var(--muted);font-size:18px">${t.name}</span></h3>
+   <p class="by" style="font-size:13px">${dot(t)} ${short(t.address)} · дев ${short(t.creator)} · <span class="age">${fage(t.ageMin)}</span> · <span class="c-chain"><span class="rh"></span>Robinhood · Pons</span></p></div></div>
+   <div class="p-top"><div class="mc"><span>Market cap</span><b class="num">${fm(t.mcap)}${pct(t.chg)}</b></div>
+     <div class="big-verdict">${ring(t.score,t.verdict)}<div><div style="font-size:12px;color:var(--muted)">Оценка Bernaut</div>${vBadge(t.verdict)}</div></div></div>
+   <div style="margin-top:14px">${spark(t.pts,800,70).replace('class="spark"','class="spark" style="height:70px"')}</div>
+   <div class="metrics">
+     ${M("Ликвидность",fm(t.liq),((t.liq/t.mcap)*100).toFixed(0)+"% от MC")}
+     ${M("Объём 24ч",fm(t.vol24))}
+     ${M("Холдеры",fn(t.holders))}
+     ${M("Топ-10 держат",t.top10+"%")}
+     ${M("Дев держит",t.dev+"%")}
+     ${M("Снайперы",t.snipers+"%")}
+     ${M("Покупки / продажи",t.buys+" / "+t.sells,`<span class="${bs>=1?"up":"down"}">ratio ${bs}</span>`)}
+     ${M("Кривая бондинга",t.graduated?"Graduated":t.progress+"%",t.graduated?(t.lpBurned?'<span class="up">LP сожжён</span>':'<span class="down">LP не сожжён</span>'):"")}
+     ${M("Прошлые запуски дева",t.devPrev,t.devPrev?`<span class="${t.devRugs?"down":"up"}">${t.devRugs} rug</span>`:"первый запуск")}
+     ${M("Соцсети",[t.socials.x&&"X",t.socials.tg&&"TG",t.socials.web&&"Web"].filter(Boolean).join(" · ")||"нет")}
+     ${M("Возраст",fage(t.ageMin))}
+     ${M("Изм. цены",(t.chg>=0?"+":"")+t.chg.toFixed(1)+"%")}
+   </div>
+   <div class="sec-t">РАЗБОР ПО МЕТРИКАМ</div>
+   <div class="breakdown">${metrics(t).map(([k,v])=>`<div class="bk"><span>${k}</span><span class="track"><i style="width:${v*10}%;background:${v>=7?"#3B8A4E":v>=4.5?"#B07A2A":"#B5473B"}"></i></span><b>${v.toFixed(1)}</b></div>`).join("")}</div>
+   <div class="sec-t">AI-ОБЗОР</div>
+   <div class="ai"><div class="ai-h"><h4>✦ Bernaut AI</h4><button class="ai-btn" id="aib">Сгенерировать обзор</button></div><div id="aiout"><p class="note" style="margin-top:8px">AI прочитает все метрики токена и скажет, стоит ли заходить в сделку, с уровнями входа и стопа.</p></div></div>
+   <div class="p-actions"><a href="https://pons.family/launchpad" target="_blank" rel="noopener">Открыть на Pons ↗</a></div>
+   <p class="note">Не является финансовой рекомендацией. Мемкоины могут обнулиться.</p>`;
+  document.getElementById("ov").classList.add("on");
+  document.getElementById("x").onclick=close;
+  document.getElementById("aib").onclick=()=>runAI(t);
+}
+function close(){document.getElementById("ov").classList.remove("on")}
+document.getElementById("ov").addEventListener("click",e=>{if(e.target.id==="ov")close()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+
+function payload(t){return {ticker:t.ticker,name:t.name,chain:"Robinhood Chain",launchpad:"Pons",age:fage(t.ageMin),market_cap_usd:Math.round(t.mcap),liquidity_usd:Math.round(t.liq),volume_24h_usd:Math.round(t.vol24),holders:t.holders,top10_holders_pct:t.top10,dev_holding_pct:t.dev,snipers_pct:t.snipers,buys_24h:t.buys,sells_24h:t.sells,bonding_curve_progress_pct:t.progress,graduated:t.graduated,lp_burned:t.lpBurned,dev_previous_launches:t.devPrev,dev_previous_rugs:t.devRugs,socials:t.socials,price_change_recent_pct:+t.chg.toFixed(1),bernaut_metric_scores:Object.fromEntries(metrics(t).map(([k,v])=>[k,+v.toFixed(1)])),bernaut_total_score:t.score}}
+
+function renderAI(r,src){
+  const v=["enter","wait","avoid"].includes(r.verdict)?r.verdict:"wait";
+  document.getElementById("aiout").innerHTML=`<div class="ai-body">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">${vBadge(v)}<span class="score">уверенность ${r.confidence??"—"}%</span></div>
+    <p class="lead">${esc(r.summary||"")}</p>
+    <div class="cols"><div><h6 class="up">ПЛЮСЫ</h6><ul>${(r.pros||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+    <div><h6 class="down">РИСКИ</h6><ul>${(r.risks||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>
+    <div class="plan"><span>Вход: <b>${esc(r.entry||"—")}</b></span><span>Стоп: <b>${esc(r.stop||"—")}</b></span><span>Цель: <b>${esc(r.target||"—")}</b></span><span>Размер позиции: <b>${esc(r.size||"—")}</b></span></div>
+    <p class="note">${src}</p></div>`;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function localReview(t){
+  const m=metrics(t).sort((a,b)=>b[1]-a[1]);
+  return {verdict:t.verdict,confidence:Math.min(90,40+Math.abs(t.score-56)),
+    summary:t.verdict==="enter"?`$${t.ticker} выглядит сильнее большинства листингов Pons: метрики сбалансированы, явных красных флагов нет.`:t.verdict==="wait"?`$${t.ticker} — смешанная картина. Есть сильные стороны, но риски пока не дают уверенного входа.`:`$${t.ticker} лучше пропустить: слабые метрики перевешивают потенциал.`,
+    pros:m.slice(0,3).map(([k,v])=>`${k}: ${v.toFixed(1)}/10`),
+    risks:m.slice(-3).reverse().map(([k,v])=>`${k}: ${v.toFixed(1)}/10`),
+    entry:t.verdict==="avoid"?"не входить":t.verdict==="wait"?"после отката на 15–20%":"частями, текущий уровень",
+    stop:t.verdict==="avoid"?"—":"−25% от входа",target:t.verdict==="avoid"?"—":"×2 от входа, фиксировать частями",size:t.verdict==="enter"?"до 2% депозита":t.verdict==="wait"?"до 1% депозита":"0%"};
+}
+
+async function runAI(t){
+  const btn=document.getElementById("aib"),out=document.getElementById("aiout");
+  btn.disabled=true;out.innerHTML=`<div class="thinking"><i></i><span id="th">Bernaut читает метрики…</span></div>`;
+  const sample=await getSample();
+  if(!sample){renderAI(localReview(t),"Алгоритмический обзор: AI-модель недоступна в этом просмотре.");btn.disabled=false;btn.textContent="Обновить обзор";return}
+  const prompt=`Ты — Bernaut, аналитик мемкоинов с лаунчпада Pons (Robinhood Chain). Тебе дают метрики одного токена. Оцени его как опытный on-chain трейдер: ликвидность, концентрацию холдеров, долю дева и снайперов, давление покупок, объём, прогресс бондинг-кривой, историю дева (rug), соцсети, лок LP.
+Ответь ТОЛЬКО валидным JSON без markdown, на русском:
+{"verdict":"enter"|"wait"|"avoid","confidence":0-100,"summary":"2-3 предложения, главный вывод","pros":["до 4 пунктов с цифрами"],"risks":["до 4 пунктов с цифрами"],"entry":"где/как входить","stop":"стоп-лосс","target":"цель","size":"доля депозита"}
+Метрики токена:
+${JSON.stringify(payload(t),null,1)}`;
+  try{
+    const res=await sample(prompt,{modelTier:"default",onText:({text})=>{const el=document.getElementById("th");if(el)el.textContent=text&&text!=="Thinking..."?"Пишет обзор…":"Bernaut думает…"}});
+    const txt=res.text||"";const j=JSON.parse(txt.slice(txt.indexOf("{"),txt.lastIndexOf("}")+1));
+    renderAI(j,"Обзор сгенерирован Bernaut AI на основе текущих метрик. Не финансовый совет.");
+  }catch(e){
+    if(e&&e.code==="not_granted"){renderAI(localReview(t),"Доступ к AI не выдан — показан алгоритмический обзор.");}
+    else if(e&&e.code==="rate_limited"){renderAI(localReview(t),"AI временно перегружен — показан алгоритмический обзор. Попробуйте через минуту.");}
+    else renderAI(localReview(t),"Не удалось разобрать ответ AI — показан алгоритмический обзор.");
+  }
+  btn.disabled=false;btn.textContent="Обновить обзор";
+}
+
+/* ===================== EVENTS ===================== */
+document.getElementById("tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));state.tab=b.dataset.t;state.limit=25;renderList()};
+document.getElementById("views").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.querySelectorAll("#views button").forEach(x=>x.classList.toggle("on",x===b));state.view=b.dataset.v;renderList()};
+document.getElementById("vf").onchange=e=>{state.v=e.target.value;state.limit=25;renderList()};
+document.getElementById("q").oninput=e=>{state.q=e.target.value;renderList()};
+document.body.addEventListener("click",e=>{const c=e.target.closest("[data-id]");if(c&&!e.target.closest(".panel")){e.preventDefault();open(c.dataset.id)}});
+
+// hero slider
+let si=0;const slides=[...document.querySelectorAll(".slide")],dots=[...document.querySelectorAll("#dots b")];
+function go(i){si=i;slides.forEach((s,k)=>s.classList.toggle("on",k===i));dots.forEach((d,k)=>d.classList.toggle("on",k===i))}
+dots.forEach((d,k)=>d.onclick=()=>go(k));setInterval(()=>go((si+1)%slides.length),5000);
+
+// live ticks (демо: имитация обновлений из индексатора)
+function tick(){
+  for(let k=0;k<6;k++){const t=TOKENS[Math.floor(Math.random()*TOKENS.length)];const d=(Math.random()-.48)*.04;
+    t.mcap*=1+d;t.pts.push(t.pts[t.pts.length-1]*(1+d));t.pts.shift();t.chg=(t.pts[39]/t.pts[30]-1)*100;
+    const a=document.querySelector(`[data-mc="${t.id}"]`);if(a){a.innerHTML=fm(t.mcap)+pct(t.chg);a.className="num "+(d>=0?"flash-up":"flash-down")}
+    const b=document.querySelector(`[data-mc2="${t.id}"]`);if(b){b.textContent=fm(t.mcap);b.className="r num mcap "+(d>=0?"flash-up":"flash-down")}}
+}
+
+(async()=>{
+  TOKENS=(await loadListings()).map(t=>{t.score=score(t);t.verdict=verdictOf(t.score);return t});
+  renderTrending();renderList();setInterval(tick,3000);
+})();
+</script>
+</body>
+</html>
