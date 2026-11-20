@@ -7,6 +7,7 @@
 //   POST /api/review/:address  → AI-обзор (JSON)
 
 import http from "node:http";
+import zlib from "node:zlib";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -66,43 +67,79 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
       return type ? { type, buf } : null;
     } catch { return null; } finally { clearTimeout(timer); }
   }
-  async function proxyImage(u, res) {
+  const pending = new Map(); // url → Promise (одна загрузка на URL)
+  function parseImgUrl(u) {
     let target;
-    try { target = new URL(u); } catch { return send(res, 400, { error: "bad url" }); }
-    if (!okHost(target)) return send(res, 400, { error: "bad url" });
-    const key = target.href;
-    let hit = imgCache.get(key);
-    if (hit === undefined) {
-      const m = key.match(/\/ipfs\/(.+)$/);
-      const tries = m ? GATEWAYS.map((g) => g + m[1]) : [key];
-      hit = null;
-      for (const h of tries) { hit = await fetchImage(h); if (hit) break; }
-      imgCache.set(key, hit); // null тоже кэшируем, чтобы не долбить мёртвые ссылки
-      if (imgCache.size > 800) imgCache.delete(imgCache.keys().next().value);
+    try { target = new URL(u); } catch { return null; }
+    return okHost(target) ? target.href : null;
+  }
+  async function loadImage(key) {
+    if (imgCache.has(key)) return imgCache.get(key);
+    if (!pending.has(key)) {
+      pending.set(key, (async () => {
+        const m = key.match(/\/ipfs\/(.+)$/);
+        const tries = m ? GATEWAYS.map((g) => g + m[1]) : [key];
+        let hit = null;
+        for (const h of tries) { hit = await fetchImage(h); if (hit) break; }
+        imgCache.set(key, hit); // null тоже кэшируем, чтобы не долбить мёртвые ссылки
+        if (imgCache.size > 1500) imgCache.delete(imgCache.keys().next().value);
+        pending.delete(key);
+        return hit;
+      })());
     }
+    return pending.get(key);
+  }
+  async function proxyImage(u, res) {
+    const key = parseImgUrl(u);
+    if (!key) return send(res, 400, { error: "bad url" });
+    const hit = await loadImage(key);
     if (!hit) return send(res, 404, { error: "no image" }, { "cache-control": "public, max-age=600" });
-    res.writeHead(200, { "content-type": hit.type, "cache-control": "public, max-age=86400", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff", "access-control-allow-origin": allowOrigin });
+    res.writeHead(200, { "content-type": hit.type, "cache-control": "public, max-age=604800, immutable", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff", "access-control-allow-origin": allowOrigin });
     res.end(hit.buf);
   }
 
-  return async (req, res) => {
+  // Сжатие: brotli, если браузер умеет, иначе gzip
+  const pack = (body) => ({ raw: Buffer.from(body), br: zlib.brotliCompressSync(body, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } }), gz: zlib.gzipSync(body, { level: 6 }) });
+  function sendPacked(req, res, packed, type, extra = {}) {
+    const ae = String(req.headers["accept-encoding"] || "");
+    const [enc, buf] = /\bbr\b/.test(ae) ? ["br", packed.br] : /gzip/.test(ae) ? ["gzip", packed.gz] : [null, packed.raw];
+    res.writeHead(200, { "content-type": type, "access-control-allow-origin": allowOrigin, vary: "accept-encoding", ...(enc ? { "content-encoding": enc } : {}), ...extra });
+    res.end(buf);
+  }
+  function listingsPacked() {
+    if (!indexer) return null;
+    if (Date.now() - listCache.at > 2000 || !listCache.packed) {
+      const json = JSON.stringify({ status: indexer.status(), tokens: indexer.listings() });
+      listCache = { at: Date.now(), json, packed: pack(json), html: null };
+    }
+    return listCache;
+  }
+  // Страница с уже вшитыми листингами — рисуется сразу, без второго запроса
+  let tpl = null;
+  async function pagePacked() {
+    if (!tpl || env.NODE_ENV === "development") tpl = await readFile(path.join(ROOT, "index.html"), "utf8");
+    const lc = listingsPacked();
+    if (!lc) return pack(tpl);
+    if (!lc.html || lc.htmlTpl !== tpl) {
+      const boot = `<script>window.__BOOT__=${lc.json.replace(/</g, "\\u003c").replace(/\u2028|\u2029/g, "")}</script>`;
+      lc.html = pack(tpl.replace("<!--BOOT-->", boot));
+      lc.htmlTpl = tpl;
+    }
+    return lc.html;
+  }
+
+  const handler = async (req, res) => {
     const url = new URL(req.url, "http://x");
     const p = url.pathname;
     try {
       if (req.method === "OPTIONS") return send(res, 204, "");
-      if (p === "/" || p === "/index.html") {
-        return send(res, 200, await readFile(path.join(ROOT, "index.html"), "utf8"), { "cache-control": "no-cache" });
-      }
+      if (p === "/" || p === "/index.html") return sendPacked(req, res, await pagePacked(), "text/html; charset=utf-8", { "cache-control": "no-cache" });
       if (p === "/healthz") return send(res, 200, { ok: true });
       if (p === "/img") return proxyImage(url.searchParams.get("u"), res);
       if (p === "/api/status") return send(res, 200, { ...(indexer?.status() ?? { synced: false, disabled: true }), ai: !!apiKey });
       if (!indexer) return send(res, 503, { error: "indexer disabled: set RPC_URL" });
 
-      if (p === "/api/listings") {
-        if (Date.now() - listCache.at > 2000) listCache = { at: Date.now(), body: JSON.stringify({ status: indexer.status(), tokens: indexer.listings() }) };
-        res.writeHead(200, { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": allowOrigin, "cache-control": "no-store" });
-        return res.end(listCache.body);
-      }
+      if (p === "/api/listings") return sendPacked(req, res, listingsPacked().packed, "application/json; charset=utf-8", { "cache-control": "no-store" });
       let m;
       if ((m = p.match(/^\/api\/token\/(0x[0-9a-fA-F]{40})$/))) {
         const t = indexer.get(m[1]);
@@ -128,6 +165,9 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
       return send(res, e.status === 429 ? 429 : 500, { error: e.status === 429 ? "rate_limited" : "internal" });
     }
   };
+  // индексатор зовёт это, как только узнаёт логотип нового токена
+  handler.warm = (u) => { const k = parseImgUrl(u); if (k) loadImage(k).catch(() => {}); };
+  return handler;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -145,5 +185,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.warn("[pons] RPC_URL не задан — индексатор выключен, сайт покажет демо-данные");
   }
   const port = +(process.env.PORT || 8080);
-  http.createServer(createApp({ indexer })).listen(port, () => console.log(`Pronoia on :${port}`));
+  const app = createApp({ indexer });
+  if (indexer) indexer.onLogo = (u) => app.warm(u);
+  http.createServer(app).listen(port, () => console.log(`Pronoia on :${port}`));
 }

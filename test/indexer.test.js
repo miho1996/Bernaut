@@ -118,6 +118,7 @@ test("индексатор считает метрики токена на кр�
   assert.ok(Math.abs(t.top10 - 6.05) <= 0.051);
   assert.equal(t.buys, 3);
   assert.equal(t.sells, 1);
+  assert.equal(t.traders, 3, "DEV, SNIPER, BUYER");
   assert.ok(Math.abs(t.vol24 - 0.123 * 3000) < 1e-6);
   assert.ok(Math.abs(t.liq - 2.1 * 2 * 3000) < 1e-6);
   assert.equal(t.devPrev, 0);
@@ -138,6 +139,17 @@ test("graduation и сделки в Uniswap V4", async () => {
   assert.equal(t.devPrev, 1, "у дева был прошлый запуск");
 });
 
+test("scoring: wash trading caps the score", async () => {
+  const { score, organic, isWashed } = await import("../server/scoring.js");
+  const base = { liq: 5000, mcap: 10000, top10: 15, dev: 0, snipers: 0, holders: 500, buys: 300, sells: 100, vol24: 20000, graduated: false, progress: 60, ageMin: 120, socials: { x: 1, tg: 1, web: 1 }, devPrev: 0, devRugs: 0, lpBurned: null };
+  const real = { ...base, traders: 250 };
+  const washed = { ...base, traders: 4 };
+  assert.ok(score(real) >= 66, "organic token can be Enter");
+  assert.equal(isWashed(washed), true);
+  assert.ok(organic(washed) < 1);
+  assert.ok(score(washed) <= 40, "wash-traded token is capped");
+});
+
 test("HTTP: листинги, статус, AI-обзор и кэш", async () => {
   const ix = await syncedIndexer();
   let calls = 0;
@@ -156,8 +168,12 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
     assert.equal(l.tokens.length, 2);
     const st = await (await fetch(base + "/api/status")).json();
     assert.equal(st.ai, true);
-    const html = await (await fetch(base + "/")).text();
+    const res = await fetch(base + "/", { headers: { "accept-encoding": "br, gzip" } });
+    assert.equal(res.headers.get("content-encoding"), "br", "страница сжата");
+    const html = await res.text();
     assert.match(html, /PRONOIA/);
+    assert.match(html, /window\.__BOOT__=\{"status"/, "листинги вшиты в HTML");
+    assert.ok(!/__BOOT__=[^<]*<\/script>[^]*<!--BOOT-->/.test(html), "плейсхолдер заменён");
     const r1 = await fetch(base + `/api/review/${TOKEN}`, { method: "POST" });
     assert.equal(r1.status, 200);
     assert.equal((await r1.json()).verdict, "wait");

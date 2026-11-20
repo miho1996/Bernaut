@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22-6%20-11%2092%2092%22%3E%3Crect%20x%3D%22-6%22%20y%3D%22-11%22%20width%3D%2292%22%20height%3D%2292%22%20rx%3D%2220%22%20fill%3D%22%231C1A17%22%2F%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%2280%22%20height%3D%2214%22%20fill%3D%22%23FBF8F2%22%2F%3E%3Crect%20x%3D%229%22%20y%3D%2214%22%20width%3D%2214%22%20height%3D%2256%22%20fill%3D%22%23FBF8F2%22%2F%3E%3Crect%20x%3D%2257%22%20y%3D%2214%22%20width%3D%2214%22%20height%3D%2256%22%20fill%3D%22%23FBF8F2%22%2F%3E%3Cpath%20d%3D%22M28%2070A12%2012%200%200%201%2052%2070Z%22%20fill%3D%22%235BBF73%22%2F%3E%3C%2Fsvg%3E">
-<title>Pronoia — AI-анализ листингов Pons</title>
+<title>Pronoia — AI analysis of every Pons listing</title>
+<meta name="description" content="Pronoia scores every token launched on Pons (Robinhood Chain) across 13 on-chain metrics and tells you whether to enter, wait or skip.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -193,6 +194,8 @@ footer.site-foot{margin-top:120px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .note{font-size:12px;color:var(--faint);margin-top:12px}
 .p-actions{display:flex;gap:10px;margin-top:18px}
+.p-actions .copy{height:44px;padding:0 18px;border-radius:12px;font-weight:600;background:#fff;border:1px solid var(--bd)}
+.p-actions{flex-wrap:wrap}
 .p-actions a{height:44px;display:inline-flex;align-items:center;padding:0 18px;border-radius:12px;font-weight:600;background:var(--card);border:1px solid var(--bd)}
 .flash-up{animation:fu 1s}.flash-down{animation:fd 1s}
 @keyframes fu{0%{color:var(--green)}}@keyframes fd{0%{color:var(--red)}}
@@ -223,8 +226,8 @@ footer.site-foot{margin-top:120px}
     <a class="brand" href="#" aria-label="Pronoia"><svg viewBox="0 0 501.34 70" role="img" aria-label="Pronoia"><rect x="0" y="0" width="80" height="14" fill="#1C1A17"/><rect x="9" y="14" width="14" height="56" fill="#1C1A17"/><rect x="57" y="14" width="14" height="56" fill="#1C1A17"/><path d="M28 70A12 12 0 0 1 52 70Z" fill="#3B8A4E"/><path transform="translate(110 55.15)" d="M29.51-13.02L12.90-13.02L12.90 0L4.65 0L4.65-40.11L29.51-40.11Q32.86-40.11 35.80-39.31Q38.75-38.50 40.95-36.83Q43.15-35.15 44.39-32.55Q45.63-29.95 45.63-26.29Q45.63-22.69 44.39-20.15Q43.15-17.61 40.95-16.03Q38.75-14.45 35.80-13.73Q32.86-13.02 29.51-13.02M12.90-33.05L12.90-19.59L30.26-19.59Q33.54-19.59 35.46-21.36Q37.39-23.13 37.39-26.29Q37.39-29.57 35.46-31.31Q33.54-33.05 30.26-33.05M70.31 0L62.06 0L62.06-40.11L89.28-40.11Q93.93-40.11 97.37-38.84Q100.81-37.57 102.73-34.87Q104.66-32.18 104.66-27.96Q104.66-25.11 103.66-23.13Q102.67-21.14 100.91-19.90Q99.14-18.66 96.84-18.04Q95.79-17.73 94.61-17.48Q96.66-17.30 98.21-16.99Q101-16.31 102.39-14.60Q103.79-12.90 103.79-9.55L103.79 0L95.54 0L95.54-8.99Q95.54-11.28 94.74-12.55Q93.93-13.83 91.85-14.32Q89.78-14.82 85.87-14.82L70.31-14.82L70.31 0M70.31-33.05L70.31-21.27L89.28-21.27Q92.75-21.27 94.58-22.94Q96.41-24.61 96.41-27.47Q96.41-30.19 94.58-31.62Q92.75-33.05 89.28-33.05M145.82 0.81Q137.83 0.81 132.15-1.71Q126.48-4.22 123.47-8.87Q120.47-13.52 120.47-20.03Q120.47-26.60 123.47-31.25Q126.48-35.90 132.15-38.41Q137.83-40.92 145.82-40.92Q153.88-40.92 159.53-38.41Q165.17-35.90 168.17-31.25Q171.18-26.60 171.18-20.03Q171.18-13.52 168.17-8.87Q165.17-4.22 159.53-1.71Q153.88 0.81 145.82 0.81M145.82-6.32Q150.78-6.32 154.53-7.81Q158.29-9.30 160.42-12.34Q162.56-15.38 162.56-20.03Q162.56-24.68 160.42-27.71Q158.29-30.75 154.53-32.27Q150.78-33.79 145.82-33.79Q140.93-33.79 137.08-32.27Q133.24-30.75 131.07-27.71Q128.90-24.68 128.90-20.03Q128.90-15.38 131.07-12.34Q133.24-9.30 137.08-7.81Q140.93-6.32 145.82-6.32M196.17-40.11L225.99-10.73L225.99-40.11L234.24-40.11L234.24 0L225.99 0L196.17-29.14L196.17 0L187.92 0L187.92-40.11M276.33 0.81Q268.34 0.81 262.66-1.71Q256.99-4.22 253.98-8.87Q250.98-13.52 250.98-20.03Q250.98-26.60 253.98-31.25Q256.99-35.90 262.66-38.41Q268.34-40.92 276.33-40.92Q284.39-40.92 290.04-38.41Q295.68-35.90 298.69-31.25Q301.69-26.60 301.69-20.03Q301.69-13.52 298.69-8.87Q295.68-4.22 290.04-1.71Q284.39 0.81 276.33 0.81M276.33-6.32Q281.29-6.32 285.05-7.81Q288.80-9.30 290.94-12.34Q293.07-15.38 293.07-20.03Q293.07-24.68 290.94-27.71Q288.80-30.75 285.05-32.27Q281.29-33.79 276.33-33.79Q271.44-33.79 267.59-32.27Q263.75-30.75 261.58-27.71Q259.41-24.68 259.41-20.03Q259.41-15.38 261.58-12.34Q263.75-9.30 267.59-7.81Q271.44-6.32 276.33-6.32M319.61 0L319.61-40.11L327.86-40.11L327.86 0M352.41 0L343.48 0L362.33-40.11L371.26-40.11L390.29 0L381.30 0L377.33-8.74L356.38-8.74L352.41 0M359.48-15.62L374.17-15.62L366.79-31.81" fill="#1C1A17"/></svg></a>
     <nav class="links">
       <a class="hide-m" href="#picks">AI Picks</a>
-      <a class="hide-m" href="#how">Как это работает</a>
-      <a class="btn-ink" href="#all">Анализ листингов</a>
+      <a class="hide-m" href="#how">How it works</a>
+      <a class="btn-ink" href="#all">All listings</a>
     </nav>
   </div>
 </header>
@@ -234,17 +237,17 @@ footer.site-foot{margin-top:120px}
   <div class="blob" style="width:380px;height:300px;background:#EDE3D2;right:22%;bottom:-160px;opacity:.8"></div>
   <div class="slides">
     <div class="slide on">
-      <div class="stat"><strong id="h-cap"><i>$</i>0</strong><span>Капитализация под анализом</span></div>
+      <div class="stat"><strong id="h-cap"><i>$</i>0</strong><span>Market cap under analysis</span></div>
       <div class="vr"></div>
       <div class="wall" id="h-wall"></div>
     </div>
     <div class="slide">
-      <div class="stat"><strong id="h-n">0</strong><span>Листингов Pons разобрано</span></div>
+      <div class="stat"><strong id="h-n">0</strong><span>Pons listings analyzed</span></div>
       <div class="vr"></div>
       <div class="wall">
-        <div><span class="mword" style="font-size:26px">Ликвидность</span><span class="mword" style="font-size:19px;font-weight:500">топ-10 холдеров</span><span class="mword" style="font-size:24px;font-weight:800;letter-spacing:-.02em">Снайперы</span></div>
-        <div><span class="mword" style="font-size:17px;letter-spacing:.14em;font-weight:800">ДОЛЯ ДЕВА</span><span class="mword" style="font-size:22px;font-style:italic">Давление покупок</span><span class="mword" style="font-size:18px">Объём / MC</span><span class="mword" style="font-size:23px;font-weight:900">Bonding</span></div>
-        <div><span class="mword" style="font-size:16px">Возраст</span><span class="mword" style="font-size:21px;font-weight:600">История дева</span><span class="mword" style="font-size:16px;letter-spacing:.1em">СОЦСЕТИ</span><span class="mword" style="font-size:20px;font-weight:800">Лок LP</span><span class="mword" style="font-size:17px">Холдеры</span></div>
+        <div><span class="mword" style="font-size:26px">Liquidity</span><span class="mword" style="font-size:19px;font-weight:500">top-10 holders</span><span class="mword" style="font-size:24px;font-weight:800;letter-spacing:-.02em">Snipers</span></div>
+        <div><span class="mword" style="font-size:17px;letter-spacing:.14em;font-weight:800">DEV SHARE</span><span class="mword" style="font-size:22px;font-style:italic">Buy pressure</span><span class="mword" style="font-size:18px">Volume / MC</span><span class="mword" style="font-size:23px;font-weight:900">Bonding</span></div>
+        <div><span class="mword" style="font-size:16px">Age</span><span class="mword" style="font-size:21px;font-weight:600">Dev history</span><span class="mword" style="font-size:16px;letter-spacing:.1em">SOCIALS</span><span class="mword" style="font-size:20px;font-weight:800">LP lock</span><span class="mword" style="font-size:17px">Wash trading</span></div>
       </div>
     </div>
   </div>
@@ -255,14 +258,14 @@ footer.site-foot{margin-top:120px}
   <section id="picks">
     <div class="head">
       <h2>AI Picks</h2>
-      <div class="sub"><span class="live"></span> Лучшие оценки Pronoia прямо сейчас</div>
+      <div class="sub"><span class="live"></span> Pronoia's top-rated tokens right now</div>
     </div>
     <div class="grid" id="trending"></div>
   </section>
 
   <section id="all" style="margin-top:110px">
     <div class="head" style="flex-wrap:wrap;align-items:center;margin-bottom:0">
-      <h2 style="font-size:40px;letter-spacing:-.03em">Все листинги</h2>
+      <h2 style="font-size:40px;letter-spacing:-.03em">All listings</h2>
       <div class="toolbar">
         <div class="seg" id="tabs">
           <button data-t="mcap" class="on">Market cap</button>
@@ -273,19 +276,19 @@ footer.site-foot{margin-top:120px}
         </div>
         <label class="pill">
           <select id="vf">
-            <option value="all">Все вердикты</option>
-            <option value="enter">Заходить</option>
-            <option value="wait">Ждать</option>
-            <option value="avoid">Пропустить</option>
+            <option value="all">All verdicts</option>
+            <option value="enter">Enter</option>
+            <option value="wait">Wait</option>
+            <option value="avoid">Skip</option>
           </select>
         </label>
         <div class="views" id="views">
-          <button data-v="list" class="on" title="Список"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect y="1" width="2" height="2" rx="1"/><rect x="4" y="1" width="10" height="2" rx="1"/><rect y="6" width="2" height="2" rx="1"/><rect x="4" y="6" width="10" height="2" rx="1"/><rect y="11" width="2" height="2" rx="1"/><rect x="4" y="11" width="10" height="2" rx="1"/></svg></button>
-          <button data-v="grid" title="Сетка"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg></button>
+          <button data-v="list" class="on" title="List"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect y="1" width="2" height="2" rx="1"/><rect x="4" y="1" width="10" height="2" rx="1"/><rect y="6" width="2" height="2" rx="1"/><rect x="4" y="6" width="10" height="2" rx="1"/><rect y="11" width="2" height="2" rx="1"/><rect x="4" y="11" width="10" height="2" rx="1"/></svg></button>
+          <button data-v="grid" title="Grid"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg></button>
         </div>
         <div class="search">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
-          <input id="q" placeholder="Поиск по имени или тикеру">
+          <input id="q" placeholder="Search name or ticker">
         </div>
       </div>
     </div>
@@ -293,11 +296,11 @@ footer.site-foot{margin-top:120px}
   </section>
 
   <section id="how" style="margin-top:110px">
-    <div class="head" style="margin-bottom:16px"><h2 style="font-size:44px;letter-spacing:-.03em">Как это работает</h2></div>
+    <div class="head" style="margin-bottom:16px"><h2 style="font-size:44px;letter-spacing:-.03em">How it works</h2></div>
     <div class="how">
-      <div><b>01</b><h4>Выгружаем Pons</h4><p>Каждый новый токен с лаунчпада Pons на Robinhood Chain попадает в Pronoia: капитализация, объёмы, холдеры, кривая бондинга, история дева.</p></div>
-      <div><b>02</b><h4>Считаем 12 метрик</h4><p>Ликвидность, концентрация холдеров, доля дева и снайперов, давление покупок, активность, соцсети, прошлые запуски автора — каждая метрика получает оценку.</p></div>
-      <div><b>03</b><h4>AI даёт вердикт</h4><p>Модель читает все метрики вместе, объясняет плюсы и риски и говорит: заходить, ждать или пропустить. С уровнями входа и стопа.</p></div>
+      <div><b>01</b><h4>We index Pons</h4><p>Every new token from the Pons launchpad on Robinhood Chain lands in Pronoia within seconds: market cap, volume, holders, bonding curve, dev history — read straight from the chain.</p></div>
+      <div><b>02</b><h4>We score 13 metrics</h4><p>Liquidity, holder concentration, dev and sniper share, buy pressure, wash trading, socials, the creator's past launches — every metric gets a score.</p></div>
+      <div><b>03</b><h4>AI gives a verdict</h4><p>The model reads all metrics together, explains the upside and the risks, and tells you: enter, wait or skip — with entry, stop-loss and target levels.</p></div>
     </div>
   </section>
 </main>
@@ -306,31 +309,31 @@ footer.site-foot{margin-top:120px}
   <div class="f-in">
     <div>
       <div class="f-brand"><svg viewBox="0 0 501.34 70" role="img" aria-label="Pronoia"><rect x="0" y="0" width="80" height="14" fill="#1C1A17"/><rect x="9" y="14" width="14" height="56" fill="#1C1A17"/><rect x="57" y="14" width="14" height="56" fill="#1C1A17"/><path d="M28 70A12 12 0 0 1 52 70Z" fill="#3B8A4E"/><path transform="translate(110 55.15)" d="M29.51-13.02L12.90-13.02L12.90 0L4.65 0L4.65-40.11L29.51-40.11Q32.86-40.11 35.80-39.31Q38.75-38.50 40.95-36.83Q43.15-35.15 44.39-32.55Q45.63-29.95 45.63-26.29Q45.63-22.69 44.39-20.15Q43.15-17.61 40.95-16.03Q38.75-14.45 35.80-13.73Q32.86-13.02 29.51-13.02M12.90-33.05L12.90-19.59L30.26-19.59Q33.54-19.59 35.46-21.36Q37.39-23.13 37.39-26.29Q37.39-29.57 35.46-31.31Q33.54-33.05 30.26-33.05M70.31 0L62.06 0L62.06-40.11L89.28-40.11Q93.93-40.11 97.37-38.84Q100.81-37.57 102.73-34.87Q104.66-32.18 104.66-27.96Q104.66-25.11 103.66-23.13Q102.67-21.14 100.91-19.90Q99.14-18.66 96.84-18.04Q95.79-17.73 94.61-17.48Q96.66-17.30 98.21-16.99Q101-16.31 102.39-14.60Q103.79-12.90 103.79-9.55L103.79 0L95.54 0L95.54-8.99Q95.54-11.28 94.74-12.55Q93.93-13.83 91.85-14.32Q89.78-14.82 85.87-14.82L70.31-14.82L70.31 0M70.31-33.05L70.31-21.27L89.28-21.27Q92.75-21.27 94.58-22.94Q96.41-24.61 96.41-27.47Q96.41-30.19 94.58-31.62Q92.75-33.05 89.28-33.05M145.82 0.81Q137.83 0.81 132.15-1.71Q126.48-4.22 123.47-8.87Q120.47-13.52 120.47-20.03Q120.47-26.60 123.47-31.25Q126.48-35.90 132.15-38.41Q137.83-40.92 145.82-40.92Q153.88-40.92 159.53-38.41Q165.17-35.90 168.17-31.25Q171.18-26.60 171.18-20.03Q171.18-13.52 168.17-8.87Q165.17-4.22 159.53-1.71Q153.88 0.81 145.82 0.81M145.82-6.32Q150.78-6.32 154.53-7.81Q158.29-9.30 160.42-12.34Q162.56-15.38 162.56-20.03Q162.56-24.68 160.42-27.71Q158.29-30.75 154.53-32.27Q150.78-33.79 145.82-33.79Q140.93-33.79 137.08-32.27Q133.24-30.75 131.07-27.71Q128.90-24.68 128.90-20.03Q128.90-15.38 131.07-12.34Q133.24-9.30 137.08-7.81Q140.93-6.32 145.82-6.32M196.17-40.11L225.99-10.73L225.99-40.11L234.24-40.11L234.24 0L225.99 0L196.17-29.14L196.17 0L187.92 0L187.92-40.11M276.33 0.81Q268.34 0.81 262.66-1.71Q256.99-4.22 253.98-8.87Q250.98-13.52 250.98-20.03Q250.98-26.60 253.98-31.25Q256.99-35.90 262.66-38.41Q268.34-40.92 276.33-40.92Q284.39-40.92 290.04-38.41Q295.68-35.90 298.69-31.25Q301.69-26.60 301.69-20.03Q301.69-13.52 298.69-8.87Q295.68-4.22 290.04-1.71Q284.39 0.81 276.33 0.81M276.33-6.32Q281.29-6.32 285.05-7.81Q288.80-9.30 290.94-12.34Q293.07-15.38 293.07-20.03Q293.07-24.68 290.94-27.71Q288.80-30.75 285.05-32.27Q281.29-33.79 276.33-33.79Q271.44-33.79 267.59-32.27Q263.75-30.75 261.58-27.71Q259.41-24.68 259.41-20.03Q259.41-15.38 261.58-12.34Q263.75-9.30 267.59-7.81Q271.44-6.32 276.33-6.32M319.61 0L319.61-40.11L327.86-40.11L327.86 0M352.41 0L343.48 0L362.33-40.11L371.26-40.11L390.29 0L381.30 0L377.33-8.74L356.38-8.74L352.41 0M359.48-15.62L374.17-15.62L366.79-31.81" fill="#1C1A17"/></svg></div>
-      <p>Pronoia (греч. πρόνοια — «предвидение») — AI-аналитик листингов лаунчпада Pons на Robinhood Chain. Собираем on-chain данные каждого запуска, оцениваем токен по 12 метрикам и даём вердикт: заходить, ждать или пропустить.</p>
-      <p class="small">Не является финансовой рекомендацией. Мемкоины крайне волатильны, решения вы принимаете сами.</p>
+      <p>Pronoia (Greek πρόνοια — “foresight”) is an AI analyst for the Pons launchpad on Robinhood Chain. We pull on-chain data for every launch, score each token across 13 metrics and give a verdict: enter, wait or skip.</p>
+      <p class="small">Not financial advice. Memecoins are extremely volatile — you make your own decisions.</p>
     </div>
-    <div><h5>ПЛАТФОРМА</h5><a href="#all">Все листинги</a><a href="#picks">AI Picks</a><a href="#how">Как это работает</a></div>
-    <div><h5>РЕСУРСЫ</h5><a href="https://github.com/miho1996/bernaut">Документация</a><a href="https://pons.family/launchpad" target="_blank" rel="noopener">Pons Launchpad</a><a href="#">Privacy policy</a></div>
-    <div><h5>СООБЩЕСТВО</h5>
+    <div><h5>PLATFORM</h5><a href="#all">All listings</a><a href="#picks">AI Picks</a><a href="#how">How it works</a></div>
+    <div><h5>RESOURCES</h5><a href="https://github.com/miho1996/bernaut">Docs</a><a href="https://pons.family/launchpad" target="_blank" rel="noopener">Pons Launchpad</a><a href="#">Privacy policy</a></div>
+    <div><h5>COMMUNITY</h5>
       <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M21 4 3 11l6 2.5L19 7l-8 8 .5 5 3-3.5 4.5 3.5z"/></svg>Telegram</a>
       <a href="#"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.8 3h3.1l-6.8 7.8L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/></svg>X</a>
       <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 6.5C9.5 5.5 14.5 5.5 17 6.5c1.6 2.4 2.6 5.6 2.5 9.3-1.4 1.2-3 1.9-4.5 2.2l-1-1.8M7 6.5c-1.6 2.4-2.6 5.6-2.5 9.3 1.4 1.2 3 1.9 4.5 2.2l1-1.8M8 15.5c2.6 1 5.4 1 8 0"/><circle cx="9.5" cy="12" r="1.2"/><circle cx="14.5" cy="12" r="1.2"/></svg>Discord</a>
     </div>
   </div>
-  <div class="f-bot"><span>Pronoia © 2026. Все права защищены.</span><nav><a href="#">Privacy policy</a><a href="#">Terms of use</a></nav></div>
+  <div class="f-bot"><span>Pronoia © 2026. All rights reserved.</span><nav><a href="#">Privacy policy</a><a href="#">Terms of use</a></nav></div>
   <div class="f-mark" aria-hidden="true"><canvas id="scramble"></canvas>
     <svg viewBox="15.0 -132.0 1100.0 134.6" preserveAspectRatio="none"><path d="M95.2-42L41.6-42L41.6 0L15 0L15-129.4L95.2-129.4Q106-129.4 115.5-126.8Q125-124.2 132.1-118.8Q139.2-113.4 143.2-105Q147.2-96.6 147.2-84.8Q147.2-73.2 143.2-65Q139.2-56.8 132.1-51.7Q125-46.6 115.5-44.3Q106-42 95.2-42M41.6-106.6L41.6-63.2L97.6-63.2Q108.2-63.2 114.4-68.9Q120.6-74.6 120.6-84.8Q120.6-95.4 114.4-101Q108.2-106.6 97.6-106.6L41.6-106.6M202.8 0L176.2 0L176.2-129.4L264-129.4Q279-129.4 290.1-125.3Q301.2-121.2 307.4-112.5Q313.6-103.8 313.6-90.2Q313.6-81 310.4-74.6Q307.2-68.2 301.5-64.2Q295.8-60.2 288.4-58.2Q285-57.2 281.2-56.4Q287.8-55.8 292.8-54.8Q301.8-52.6 306.3-47.1Q310.8-41.6 310.8-30.8L310.8 0L284.2 0L284.2-29Q284.2-36.4 281.6-40.5Q279-44.6 272.3-46.2Q265.6-47.8 253-47.8L202.8-47.8L202.8 0M202.8-106.6L202.8-68.6L264-68.6Q275.2-68.6 281.1-74Q287-79.4 287-88.6Q287-97.4 281.1-102Q275.2-106.6 264-106.6L202.8-106.6M422.4 2.6Q396.6 2.6 378.3-5.5Q360-13.6 350.3-28.6Q340.6-43.6 340.6-64.6Q340.6-85.8 350.3-100.8Q360-115.8 378.3-123.9Q396.6-132 422.4-132Q448.4-132 466.6-123.9Q484.8-115.8 494.5-100.8Q504.2-85.8 504.2-64.6Q504.2-43.6 494.5-28.6Q484.8-13.6 466.6-5.5Q448.4 2.6 422.4 2.6M422.4-20.4Q438.4-20.4 450.5-25.2Q462.6-30 469.5-39.8Q476.4-49.6 476.4-64.6Q476.4-79.6 469.5-89.4Q462.6-99.2 450.5-104.1Q438.4-109 422.4-109Q406.6-109 394.2-104.1Q381.8-99.2 374.8-89.4Q367.8-79.6 367.8-64.6Q367.8-49.6 374.8-39.8Q381.8-30 394.2-25.2Q406.6-20.4 422.4-20.4M560.8-129.4L657-34.6L657-129.4L683.6-129.4L683.6 0L657 0L560.8-94L560.8 0L534.2 0L534.2-129.4L560.8-129.4M795.4 2.6Q769.6 2.6 751.3-5.5Q733-13.6 723.3-28.6Q713.6-43.6 713.6-64.6Q713.6-85.8 723.3-100.8Q733-115.8 751.3-123.9Q769.6-132 795.4-132Q821.4-132 839.6-123.9Q857.8-115.8 867.5-100.8Q877.2-85.8 877.2-64.6Q877.2-43.6 867.5-28.6Q857.8-13.6 839.6-5.5Q821.4 2.6 795.4 2.6M795.4-20.4Q811.4-20.4 823.5-25.2Q835.6-30 842.5-39.8Q849.4-49.6 849.4-64.6Q849.4-79.6 842.5-89.4Q835.6-99.2 823.5-104.1Q811.4-109 795.4-109Q779.6-109 767.2-104.1Q754.8-99.2 747.8-89.4Q740.8-79.6 740.8-64.6Q740.8-49.6 747.8-39.8Q754.8-30 767.2-25.2Q779.6-20.4 795.4-20.4M911 0L911-129.4L937.6-129.4L937.6 0L911 0M992.8 0L964 0L1024.8-129.4L1053.6-129.4L1115 0L1086 0L1073.2-28.2L1005.6-28.2L992.8 0M1015.6-50.4L1063-50.4L1039.2-102.6" fill="#1C1A17"/></svg>
   </div>
 </footer>
 
+<!--BOOT-->
 <div class="ov" id="ov"><div class="panel" id="panel"></div></div>
 
 <script>
 /* ===================== DATA LAYER =====================
-   Сейчас: демо-листинги в формате Pons (Robinhood Chain).
-   Прод: заменить loadListings() на запрос к вашему бэкенду,
-   который индексирует контракт фабрики Pons / API Pons и
-   возвращает массив объектов той же формы.               */
+   Live data comes from our backend (server/), which indexes Pons V2 on Robinhood Chain.
+   The server inlines the current listings as window.__BOOT__ so the page paints instantly.
+   Demo tokens below are only used when the page is opened without a backend.  */
 function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const R=rng(20261120);
 const pick=a=>a[Math.floor(R()*a.length)];
@@ -352,14 +355,15 @@ function makeToken(n,i){
   const liq=graduated? mcap*(.08+R()*.25) : mcap*(.15+R()*.2);
   const devPrev=Math.floor(Math.pow(R(),2)*9), devRugs=devPrev?Math.floor(R()*(devPrev+1)*.7):0;
   const socials={x:R()<.75,tg:R()<.55,web:R()<.35};
+  const traders=Math.max(2,Math.round((buys+sells)*(.15+R()*.7)));
   const lpBurned=graduated?R()<.8:null;
   const trend=(R()-.42)*2;
   const pts=[];let p=1;for(let k=0;k<40;k++){p*=1+(R()-.5+trend*.04)*.12;pts.push(p)}
   const chg=(pts[39]/pts[30]-1)*100;
   return {id:i,ticker:n[0],name:n[1],emoji:n[2],hue:Math.floor(R()*360),address:hx(),creator:hx(),
-    chain:"Robinhood",graduated,progress,ageMin,mcap,holders,top10,dev,snipers,vol24,buys,sells,liq,devPrev,devRugs,socials,lpBurned,pts,chg};
+    chain:"Robinhood",graduated,progress,ageMin,mcap,holders,top10,dev,snipers,vol24,buys,sells,traders,liq,devPrev,devRugs,socials,lpBurned,pts,chg};
 }
-// Бэкенд (server/). По умолчанию — тот же домен; можно переопределить window.PRONOIA_API = "https://api.example.com"
+// Backend (server/). Same origin by default; override with window.PRONOIA_API = "https://api.example.com"
 const API=window.PRONOIA_API??(location.protocol.startsWith("http")?"":null);
 let LIVE=false;
 async function fetchLive(){
@@ -367,11 +371,13 @@ async function fetchLive(){
   try{const r=await fetch(API+"/api/listings",{cache:"no-store"});if(!r.ok) return null;const j=await r.json();
     return Array.isArray(j.tokens)&&j.tokens.length?j.tokens.map(clean):null;}catch(e){return null}
 }
-// Названия токенов задаёт кто угодно → убираем всё, что может стать HTML
+// Anyone can name a token → strip anything that could become HTML
 function clean(t){const s=v=>String(v??"").replace(/[<>"'`&\\]/g,"");
   t.ticker=s(t.ticker);t.name=s(t.name);t.emoji=s(t.emoji)||"?";t.description=t.description?s(t.description):null;
   t.address=s(t.address);t.creator=s(t.creator);t.id=t.address;return t}
 async function loadListings(){
+  const boot=window.__BOOT__;
+  if(boot&&Array.isArray(boot.tokens)&&boot.tokens.length){LIVE=true;return boot.tokens.map(clean)}
   const live=await fetchLive();
   if(live){LIVE=true;return live}
   return NAMES.map(makeToken);
@@ -379,27 +385,31 @@ async function loadListings(){
 
 /* ===================== SCORING ===================== */
 const clamp=(v,a=0,b=10)=>Math.max(a,Math.min(b,v));
+// Wash trading: unique traders per trade. 1.0 = fully organic, near 0 = a handful of bots.
+function organic(t){const n=(t.buys||0)+(t.sells||0);if(t.traders==null||n<10)return 6;return clamp(t.traders/n*25)}
+const isWashed=t=>t.traders!=null&&t.buys+t.sells>=40&&t.traders<=6;
 function metrics(t){
   const bs=t.buys/Math.max(1,t.sells);
   return [
-    ["Ликвидность / MC", clamp(t.liq/t.mcap*40), 1.2],
-    ["Концентрация топ-10", clamp(10-(t.top10-15)/6), 1.4],
-    ["Доля дева", clamp(10-t.dev*0.8), 1.3],
-    ["Снайперы", clamp(10-t.snipers/2.5), 1.1],
-    ["Холдеры", clamp(Math.log10(t.holders)*3.2-2), 1],
-    ["Давление покупок", clamp(bs*5), 1.1],
-    ["Объём / MC", clamp(t.vol24/t.mcap*6), .9],
-    ["Кривая бондинга", t.graduated?8:clamp(t.progress/10), .8],
-    ["Возраст токена", clamp(t.ageMin<30?3:t.ageMin<360?7:t.ageMin<4320?9:6), .5],
-    ["Соцсети", (t.socials.x?4:0)+(t.socials.tg?3:0)+(t.socials.web?3:0), .6],
-    ["История дева", t.devPrev===0?6:clamp(10-t.devRugs/t.devPrev*12), 1.3],
-    ["Лок / burn LP", t.graduated?(t.lpBurned?10:1):6, .8]
+    ["Liquidity / MC", clamp(t.liq/t.mcap*40), 1.2],
+    ["Top-10 concentration", clamp(10-(t.top10-15)/6), 1.4],
+    ["Dev holdings", clamp(10-t.dev*0.8), 1.3],
+    ["Snipers", clamp(10-t.snipers/2.5), 1.1],
+    ["Holders", clamp(Math.log10(Math.max(1,t.holders))*3.2-2), 1],
+    ["Buy pressure", clamp(bs*5), 1.1],
+    ["Volume / MC", clamp(t.vol24/t.mcap*6), .9],
+    ["Bonding curve", t.graduated?8:clamp(t.progress/10), .8],
+    ["Token age", clamp(t.ageMin<30?3:t.ageMin<360?7:t.ageMin<4320?9:6), .5],
+    ["Socials", (t.socials.x?4:0)+(t.socials.tg?3:0)+(t.socials.web?3:0), .6],
+    ["Dev history", t.devPrev===0?6:clamp(10-t.devRugs/t.devPrev*12), 1.3],
+    ["LP lock", t.graduated?(t.lpBurned?10:1):6, .8],
+    ["Organic activity", organic(t), 1.2]
   ];
 }
 function score(t){const m=metrics(t);let s=0,w=0;m.forEach(([,v,k])=>{s+=v*k;w+=k});let sc=Math.round(s/w*10);
-  if(t.devRugs>=2) sc=Math.min(sc,38); if(t.graduated&&!t.lpBurned) sc=Math.min(sc,44); return sc;}
+  if(t.devRugs>=2) sc=Math.min(sc,38); if(t.graduated&&!t.lpBurned) sc=Math.min(sc,44); if(isWashed(t)) sc=Math.min(sc,40); return sc;}
 function verdictOf(sc){return sc>=66?"enter":sc>=46?"wait":"avoid"}
-const VL={enter:"Заходить",wait:"Ждать",avoid:"Пропустить"};
+const VL={enter:"Enter",wait:"Wait",avoid:"Skip"};
 const vBadge=v=>`<span class="verdict v-${v}"><i></i>${VL[v]}</span>`;
 
 /* ===================== FORMAT ===================== */
@@ -408,9 +418,9 @@ const fn=n=>n>=1e3?(n/1e3).toFixed(1)+"K":String(n);
 const fage=m=>m<60?m+"m":m<1440?Math.floor(m/60)+"h":m<43200?Math.floor(m/1440)+"d":Math.floor(m/43200)+"mo";
 const pct=c=>`<em class="${c>=0?"up":"down"}">${c>=0?"+":"−"}${Math.abs(c).toFixed(1)}%</em>`;
 const safeUrl=u=>/^https:\/\//i.test(u||"")?u.replace(/"/g,"%22"):null;
-// Логотипы с IPFS/gmgn и т.п. браузер часто блокирует (CORP) — грузим через свой сервер
+// Browsers block many IPFS/gmgn logos cross-origin (CORP) — load them through our server
 const imgSrc=u=>API!=null&&/^https?:/.test(safeUrl(u))?`${API}/img?u=${encodeURIComponent(safeUrl(u))}`:safeUrl(u);
-const avatar=(t,cls="coin")=>`<div class="${cls}" style="background:linear-gradient(135deg,hsl(${t.hue} 70% 82%),hsl(${(t.hue+40)%360} 65% 62%));overflow:hidden">${safeUrl(t.logo)?`<img src="${imgSrc(t.logo)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(document.createTextNode('${esc(t.emoji).replace(/'/g,"")}'))">`:esc(t.emoji)}</div>`;
+const avatar=(t,cls="coin")=>`<div class="${cls}" style="background:linear-gradient(135deg,hsl(${t.hue} 70% 82%),hsl(${(t.hue+40)%360} 65% 62%));overflow:hidden">${safeUrl(t.logo)?`<img src="${imgSrc(t.logo)}" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover" onerror="this.replaceWith(document.createTextNode('${esc(t.emoji).replace(/'/g,"")}'))">`:esc(t.emoji)}</div>`;
 const dot=t=>`<span class="by-dot" style="background:linear-gradient(135deg,hsl(${(t.hue+180)%360} 40% 70%),hsl(${(t.hue+220)%360} 40% 50%))"></span>`;
 function spark(pts,w=200,h=28,flat){
   const mn=Math.min(...pts),mx=Math.max(...pts),r=mx-mn||1;
@@ -426,7 +436,7 @@ function countUp(el,to,fmt){const from=+el.dataset.v||0;el.dataset.v=to;
 function renderHero(){
   const cap=TOKENS.reduce((s,t)=>s+t.mcap,0);
   countUp(document.getElementById("h-cap"),cap,v=>"<i>$</i>"+(v>=1e6?(v/1e6).toFixed(1)+"M":(v/1e3).toFixed(0)+"K"));
-  countUp(document.getElementById("h-n"),TOKENS.length,v=>Math.round(v).toLocaleString("ru-RU"));
+  countUp(document.getElementById("h-n"),TOKENS.length,v=>Math.round(v).toLocaleString("en-US"));
   const fresh=[...TOKENS].sort((a,b)=>a.ageMin-b.ageMin).slice(0,10);
   const chip=t=>`<span class="chip">${avatar(t)}$${t.ticker}<small>${VL[t.verdict]}</small></span>`;
   document.getElementById("h-wall").innerHTML=`<div>${fresh.slice(0,3).map(chip).join("")}</div><div>${fresh.slice(3,7).map(chip).join("")}</div><div>${fresh.slice(7,10).map(chip).join("")}</div>`;
@@ -476,10 +486,10 @@ function filtered(){
 }
 function renderList(){
   const a=filtered(),shown=a.slice(0,state.limit),el=document.getElementById("list");
-  if(!a.length){el.innerHTML=`<div class="table-wrap"><div class="empty">Ничего не найдено</div></div>`;return}
+  if(!a.length){el.innerHTML=`<div class="table-wrap"><div class="empty">Nothing found</div></div>`;return}
   let html;
   if(state.view==="grid") html=`<div class="grid" style="margin-top:16px">${shown.map(card).join("")}</div>`;
-  else html=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Coin</th><th>Chain</th><th class="col-score">Bonding</th><th class="col-score">AI score</th><th>Вердикт</th><th class="col-graph">Graph</th><th class="r">Market cap</th></tr></thead><tbody>${
+  else html=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Coin</th><th>Chain</th><th class="col-score">Bonding</th><th class="col-score">AI score</th><th>Verdict</th><th class="col-graph">Graph</th><th class="r">Market cap</th></tr></thead><tbody>${
     shown.map((t,i)=>`<tr data-id="${t.id}"><td class="c-idx">${i+1}</td>
       <td><div class="c-coin">${avatar(t,"c-img")}<div><b>$${t.ticker}<em>${t.name}</em></b><small>${dot(t)}${short(t.address)} <span class="age">${fage(t.ageMin)}</span></small></div></div></td>
       <td><span class="c-chain"><span class="rh"></span>Robinhood</span></td>
@@ -488,7 +498,7 @@ function renderList(){
       <td>${vBadge(t.verdict)}</td>
       <td class="col-graph" style="width:140px">${spark(t.pts,120,18)}</td>
       <td class="r num mcap" data-mc2="${t.id}">${fm(t.mcap)}</td></tr>`).join("")}</tbody></table></div>`;
-  if(a.length>state.limit) html+=`<button class="more" id="more">Показать ещё (${shown.length} из ${a.length})</button>`;
+  if(a.length>state.limit) html+=`<button class="more" id="more">Show more (${shown.length} of ${a.length})</button>`;
   el.innerHTML=html;
   const m=document.getElementById("more"); if(m) m.onclick=()=>{state.limit+=25;renderList()};
 }
@@ -504,48 +514,51 @@ function open(id){
   const M=(k,v,s="")=>`<div class="m"><span>${k}</span><b class="num">${v}</b>${s?`<small>${s}</small>`:""}</div>`;
   document.getElementById("panel").innerHTML=`<button class="x" id="x">✕</button>
    <div class="p-head">${avatar(t)}<div><h3>$${t.ticker} <span style="font-weight:500;color:var(--muted);font-size:18px">${t.name}</span></h3>
-   <p class="by" style="font-size:13px">${dot(t)} ${short(t.address)} · дев ${short(t.creator)} · <span class="age">${fage(t.ageMin)}</span> · <span class="c-chain"><span class="rh"></span>Robinhood · Pons</span></p></div></div>
+   <p class="by" style="font-size:13px">${dot(t)} ${short(t.address)} · dev ${short(t.creator)} · <span class="age">${fage(t.ageMin)}</span> · <span class="c-chain"><span class="rh"></span>Robinhood · Pons</span></p></div></div>
    <div class="p-top"><div class="mc"><span>Market cap</span><b class="num">${fm(t.mcap)}${pct(t.chg)}</b></div>
-     <div class="big-verdict">${ring(t.score,t.verdict)}<div><div style="font-size:12px;color:var(--muted)">Оценка Pronoia</div>${vBadge(t.verdict)}</div></div></div>
+     <div class="big-verdict">${ring(t.score,t.verdict)}<div><div style="font-size:12px;color:var(--muted)">Pronoia score</div>${vBadge(t.verdict)}</div></div></div>
    <div style="margin-top:14px">${spark(t.pts,800,70).replace('class="spark"','class="spark" style="height:70px"')}</div>
    <div class="metrics">
-     ${M("Ликвидность",fm(t.liq),((t.liq/t.mcap)*100).toFixed(0)+"% от MC")}
-     ${M("Объём 24ч",fm(t.vol24))}
-     ${M("Холдеры",fn(t.holders))}
-     ${M("Топ-10 держат",t.top10+"%")}
-     ${M("Дев держит",t.dev+"%")}
-     ${M("Снайперы",t.snipers+"%")}
-     ${M("Покупки / продажи",t.buys+" / "+t.sells,`<span class="${bs>=1?"up":"down"}">ratio ${bs}</span>`)}
-     ${M("Кривая бондинга",t.graduated?"Graduated":t.progress+"%",t.graduated?(t.lpBurned?'<span class="up">LP заблокирован</span>':'<span class="down">LP не заблокирован</span>'):"")}
-     ${M("Прошлые запуски дева",t.devPrev,t.devPrev?`<span class="${t.devRugs?"down":"up"}">${t.devRugs} rug</span>`:"первый запуск")}
-     ${M("Соцсети",[t.socials.x&&"X",t.socials.tg&&"TG",t.socials.web&&"Web"].filter(Boolean).join(" · ")||"нет")}
-     ${M("Возраст",fage(t.ageMin))}
-     ${M("Изм. цены",(t.chg>=0?"+":"")+t.chg.toFixed(1)+"%")}
+     ${M("Liquidity",fm(t.liq),((t.liq/t.mcap)*100).toFixed(0)+"% of MC")}
+     ${M("Volume 24h",fm(t.vol24))}
+     ${M("Holders",fn(t.holders))}
+     ${M("Top-10 hold",t.top10+"%")}
+     ${M("Dev holds",t.dev+"%")}
+     ${M("Snipers",t.snipers+"%")}
+     ${M("Buys / sells",t.buys+" / "+t.sells,`<span class="${bs>=1?"up":"down"}">ratio ${bs}</span>`)}
+     ${M("Unique traders 24h",t.traders??"—",isWashed(t)?'<span class="down">wash trading</span>':t.traders!=null&&t.buys+t.sells>=10?`<span class="${organic(t)>=5?"up":"down"}">${((t.traders/Math.max(1,t.buys+t.sells))*100).toFixed(0)}% organic</span>`:"")}
+     ${M("Bonding curve",t.graduated?"Graduated":t.progress+"%",t.graduated?(t.lpBurned?'<span class="up">LP locked</span>':'<span class="down">LP not locked</span>'):"")}
+     ${M("Dev past launches",t.devPrev,t.devPrev?`<span class="${t.devRugs?"down":"up"}">${t.devRugs} rug</span>`:"first launch")}
+     ${M("Socials",socialLinks(t)||"none")}
+     ${M("Age",fage(t.ageMin))}
    </div>
-   <div class="sec-t">РАЗБОР ПО МЕТРИКАМ</div>
+   <div class="sec-t">METRIC BREAKDOWN</div>
    <div class="breakdown">${metrics(t).map(([k,v])=>`<div class="bk"><span>${k}</span><span class="track"><i style="width:${v*10}%;background:${v>=7?"#3B8A4E":v>=4.5?"#B07A2A":"#B5473B"}"></i></span><b>${v.toFixed(1)}</b></div>`).join("")}</div>
-   <div class="sec-t">AI-ОБЗОР</div>
-   <div class="ai"><div class="ai-h"><h4>✦ Pronoia AI</h4><button class="ai-btn" id="aib">Сгенерировать обзор</button></div><div id="aiout"><p class="note" style="margin-top:8px">AI прочитает все метрики токена и скажет, стоит ли заходить в сделку, с уровнями входа и стопа.</p></div></div>
-   <div class="p-actions"><a href="https://pons.family/launchpad" target="_blank" rel="noopener">Открыть на Pons ↗</a></div>
-   <p class="note">Не является финансовой рекомендацией. Мемкоины могут обнулиться.</p>`;
+   <div class="sec-t">AI REVIEW</div>
+   <div class="ai"><div class="ai-h"><h4>✦ Pronoia AI</h4><button class="ai-btn" id="aib">Generate review</button></div><div id="aiout"><p class="note" style="margin-top:8px">The AI reads every metric of this token and tells you whether to enter the trade, with entry and stop-loss levels.</p></div></div>
+   <div class="p-actions"><a href="https://pons.family/launchpad" target="_blank" rel="noopener">Trade on Pons ↗</a>${/^0x[0-9a-f]{40}$/i.test(t.address)?`<a href="https://robinhoodchain.blockscout.com/token/${t.address}" target="_blank" rel="noopener">Explorer ↗</a>`:""}<button class="copy" id="cpy">Copy address</button></div>
+   <p class="note">Not financial advice. Memecoins can go to zero.</p>`;
   document.getElementById("ov").classList.add("on");
   document.getElementById("x").onclick=close;
   document.getElementById("aib").onclick=()=>runAI(t);
+  document.getElementById("cpy").onclick=async e=>{try{await navigator.clipboard.writeText(t.address);e.target.textContent="Copied ✓"}catch{e.target.textContent=t.address}};
 }
+function socialLinks(t){const s=t.socials||{},L=[];const a=(u,l)=>{const h=safeUrl(u);if(h)L.push(`<a href="${h}" target="_blank" rel="noopener" style="text-decoration:underline">${l}</a>`);else if(u===true)L.push(l)};
+  a(s.x,"X");a(s.tg,"TG");a(s.web,"Web");return L.join(" · ")}
 function close(){document.getElementById("ov").classList.remove("on")}
 document.getElementById("ov").addEventListener("click",e=>{if(e.target.id==="ov")close()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
 
-function payload(t){return {ticker:t.ticker,name:t.name,chain:"Robinhood Chain",launchpad:"Pons",age:fage(t.ageMin),market_cap_usd:Math.round(t.mcap),liquidity_usd:Math.round(t.liq),volume_24h_usd:Math.round(t.vol24),holders:t.holders,top10_holders_pct:t.top10,dev_holding_pct:t.dev,snipers_pct:t.snipers,buys_24h:t.buys,sells_24h:t.sells,bonding_curve_progress_pct:t.progress,graduated:t.graduated,lp_burned:t.lpBurned,dev_previous_launches:t.devPrev,dev_previous_rugs:t.devRugs,socials:t.socials,price_change_recent_pct:+t.chg.toFixed(1),bernaut_metric_scores:Object.fromEntries(metrics(t).map(([k,v])=>[k,+v.toFixed(1)])),bernaut_total_score:t.score}}
+function payload(t){return {ticker:t.ticker,name:t.name,chain:"Robinhood Chain",launchpad:"Pons",age:fage(t.ageMin),market_cap_usd:Math.round(t.mcap),liquidity_usd:Math.round(t.liq),volume_24h_usd:Math.round(t.vol24),holders:t.holders,top10_holders_pct:t.top10,dev_holding_pct:t.dev,snipers_pct:t.snipers,buys_24h:t.buys,sells_24h:t.sells,unique_traders_24h:t.traders??null,bonding_curve_progress_pct:t.progress,graduated:t.graduated,lp_burned:t.lpBurned,dev_previous_launches:t.devPrev,dev_previous_rugs:t.devRugs,socials:t.socials,price_change_recent_pct:+t.chg.toFixed(1),pronoia_metric_scores:Object.fromEntries(metrics(t).map(([k,v])=>[k,+v.toFixed(1)])),pronoia_total_score:t.score}}
 
 function renderAI(r,src){
   const v=["enter","wait","avoid"].includes(r.verdict)?r.verdict:"wait";
   document.getElementById("aiout").innerHTML=`<div class="ai-body">
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">${vBadge(v)}<span class="score">уверенность ${r.confidence??"—"}%</span></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">${vBadge(v)}<span class="score">confidence ${r.confidence??"—"}%</span></div>
     <p class="lead">${esc(r.summary||"")}</p>
-    <div class="cols"><div><h6 class="up">ПЛЮСЫ</h6><ul>${(r.pros||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
-    <div><h6 class="down">РИСКИ</h6><ul>${(r.risks||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>
-    <div class="plan"><span>Вход: <b>${esc(r.entry||"—")}</b></span><span>Стоп: <b>${esc(r.stop||"—")}</b></span><span>Цель: <b>${esc(r.target||"—")}</b></span><span>Размер позиции: <b>${esc(r.size||"—")}</b></span></div>
+    <div class="cols"><div><h6 class="up">UPSIDE</h6><ul>${(r.pros||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+    <div><h6 class="down">RISKS</h6><ul>${(r.risks||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>
+    <div class="plan"><span>Entry: <b>${esc(r.entry||"—")}</b></span><span>Stop: <b>${esc(r.stop||"—")}</b></span><span>Target: <b>${esc(r.target||"—")}</b></span><span>Position size: <b>${esc(r.size||"—")}</b></span></div>
     <p class="note">${src}</p></div>`;
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
@@ -553,42 +566,42 @@ function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;","
 function localReview(t){
   const m=metrics(t).sort((a,b)=>b[1]-a[1]);
   return {verdict:t.verdict,confidence:Math.min(90,40+Math.abs(t.score-56)),
-    summary:t.verdict==="enter"?`$${t.ticker} выглядит сильнее большинства листингов Pons: метрики сбалансированы, явных красных флагов нет.`:t.verdict==="wait"?`$${t.ticker} — смешанная картина. Есть сильные стороны, но риски пока не дают уверенного входа.`:`$${t.ticker} лучше пропустить: слабые метрики перевешивают потенциал.`,
+    summary:isWashed(t)?`$${t.ticker} looks wash-traded: ${t.buys+t.sells} trades from only ${t.traders} wallets. The volume isn't real demand.`:t.verdict==="enter"?`$${t.ticker} looks stronger than most Pons listings: metrics are balanced and there are no obvious red flags.`:t.verdict==="wait"?`$${t.ticker} is a mixed picture. There are strengths, but the risks don't justify a confident entry yet.`:`$${t.ticker} is better skipped: weak metrics outweigh the upside.`,
     pros:m.slice(0,3).map(([k,v])=>`${k}: ${v.toFixed(1)}/10`),
     risks:m.slice(-3).reverse().map(([k,v])=>`${k}: ${v.toFixed(1)}/10`),
-    entry:t.verdict==="avoid"?"не входить":t.verdict==="wait"?"после отката на 15–20%":"частями, текущий уровень",
-    stop:t.verdict==="avoid"?"—":"−25% от входа",target:t.verdict==="avoid"?"—":"×2 от входа, фиксировать частями",size:t.verdict==="enter"?"до 2% депозита":t.verdict==="wait"?"до 1% депозита":"0%"};
+    entry:t.verdict==="avoid"?"don't enter":t.verdict==="wait"?"after a 15–20% pullback":"scale in at current levels",
+    stop:t.verdict==="avoid"?"—":"−25% from entry",target:t.verdict==="avoid"?"—":"2× from entry, take profit in parts",size:t.verdict==="enter"?"up to 2% of portfolio":t.verdict==="wait"?"up to 1% of portfolio":"0%"};
 }
 
 async function runAI(t){
   const btn=document.getElementById("aib"),out=document.getElementById("aiout");
-  btn.disabled=true;out.innerHTML=`<div class="thinking"><i></i><span id="th">Pronoia читает метрики…</span></div>`;
+  btn.disabled=true;out.innerHTML=`<div class="thinking"><i></i><span id="th">Pronoia is reading the metrics…</span></div>`;
   if(LIVE){
     try{
       const r=await fetch(`${API}/api/review/${t.address}`,{method:"POST"});
-      if(r.ok){renderAI(await r.json(),"Обзор сгенерирован Pronoia AI на основе on-chain метрик Pons. Не финансовый совет.");}
-      else if(r.status===429){renderAI(localReview(t),"Слишком много запросов — показан алгоритмический обзор. Попробуйте через минуту.");}
-      else renderAI(localReview(t),"AI сейчас недоступен — показан алгоритмический обзор.");
-    }catch(e){renderAI(localReview(t),"AI сейчас недоступен — показан алгоритмический обзор.");}
-    btn.disabled=false;btn.textContent="Обновить обзор";return;
+      if(r.ok){renderAI(await r.json(),"Generated by Pronoia AI from on-chain Pons metrics. Not financial advice.");}
+      else if(r.status===429){renderAI(localReview(t),"Too many requests — showing the algorithmic review. Try again in a minute.");}
+      else renderAI(localReview(t),"AI is unavailable right now — showing the algorithmic review.");
+    }catch(e){renderAI(localReview(t),"AI is unavailable right now — showing the algorithmic review.");}
+    btn.disabled=false;btn.textContent="Refresh review";return;
   }
   const sample=await getSample();
-  if(!sample){renderAI(localReview(t),"Алгоритмический обзор: AI-модель недоступна в этом просмотре.");btn.disabled=false;btn.textContent="Обновить обзор";return}
-  const prompt=`Ты — Pronoia, аналитик мемкоинов с лаунчпада Pons (Robinhood Chain). Тебе дают метрики одного токена. Оцени его как опытный on-chain трейдер: ликвидность, концентрацию холдеров, долю дева и снайперов, давление покупок, объём, прогресс бондинг-кривой, историю дева (rug), соцсети, лок LP.
-Ответь ТОЛЬКО валидным JSON без markdown, на русском:
-{"verdict":"enter"|"wait"|"avoid","confidence":0-100,"summary":"2-3 предложения, главный вывод","pros":["до 4 пунктов с цифрами"],"risks":["до 4 пунктов с цифрами"],"entry":"где/как входить","stop":"стоп-лосс","target":"цель","size":"доля депозита"}
-Метрики токена:
+  if(!sample){renderAI(localReview(t),"Algorithmic review: the AI model isn't available in this view.");btn.disabled=false;btn.textContent="Refresh review";return}
+  const prompt=`You are Pronoia, an analyst for memecoins launched on the Pons launchpad (Robinhood Chain). You get the on-chain metrics of one token. Judge it like an experienced on-chain trader: liquidity, holder concentration, dev and sniper share, buy pressure, volume, bonding-curve progress, dev history (rugs), socials, LP lock, and whether the volume is organic.
+Reply with ONLY valid JSON, no markdown, in English:
+{"verdict":"enter"|"wait"|"avoid","confidence":0-100,"summary":"2-3 sentences, the main takeaway","pros":["up to 4 points with numbers"],"risks":["up to 4 points with numbers"],"entry":"where/how to enter","stop":"stop-loss","target":"take-profit target","size":"share of portfolio"}
+Token metrics:
 ${JSON.stringify(payload(t),null,1)}`;
   try{
-    const res=await sample(prompt,{modelTier:"default",onText:({text})=>{const el=document.getElementById("th");if(el)el.textContent=text&&text!=="Thinking..."?"Пишет обзор…":"Pronoia думает…"}});
+    const res=await sample(prompt,{modelTier:"default",onText:({text})=>{const el=document.getElementById("th");if(el)el.textContent=text&&text!=="Thinking..."?"Writing the review…":"Pronoia is thinking…"}});
     const txt=res.text||"";const j=JSON.parse(txt.slice(txt.indexOf("{"),txt.lastIndexOf("}")+1));
-    renderAI(j,"Обзор сгенерирован Pronoia AI на основе текущих метрик. Не финансовый совет.");
+    renderAI(j,"Generated by Pronoia AI from current metrics. Not financial advice.");
   }catch(e){
-    if(e&&e.code==="not_granted"){renderAI(localReview(t),"Доступ к AI не выдан — показан алгоритмический обзор.");}
-    else if(e&&e.code==="rate_limited"){renderAI(localReview(t),"AI временно перегружен — показан алгоритмический обзор. Попробуйте через минуту.");}
-    else renderAI(localReview(t),"Не удалось разобрать ответ AI — показан алгоритмический обзор.");
+    if(e&&e.code==="not_granted"){renderAI(localReview(t),"AI access not granted — showing the algorithmic review.");}
+    else if(e&&e.code==="rate_limited"){renderAI(localReview(t),"AI is busy — showing the algorithmic review. Try again in a minute.");}
+    else renderAI(localReview(t),"Couldn't parse the AI reply — showing the algorithmic review.");
   }
-  btn.disabled=false;btn.textContent="Обновить обзор";
+  btn.disabled=false;btn.textContent="Refresh review";
 }
 
 /* ===================== EVENTS ===================== */
@@ -603,7 +616,7 @@ let si=0;const slides=[...document.querySelectorAll(".slide")],dots=[...document
 function go(i){si=i;slides.forEach((s,k)=>s.classList.toggle("on",k===i));dots.forEach((d,k)=>d.classList.toggle("on",k===i))}
 dots.forEach((d,k)=>d.onclick=()=>go(k));setInterval(()=>go((si+1)%slides.length),5000);
 
-// live ticks (демо: имитация обновлений из индексатора)
+// demo ticks (simulated updates when there is no backend)
 function tick(){
   for(let k=0;k<6;k++){const t=TOKENS[Math.floor(Math.random()*TOKENS.length)];const d=(Math.random()-.48)*.04;
     t.mcap*=1+d;t.pts.push(t.pts[t.pts.length-1]*(1+d));t.pts.shift();t.chg=(t.pts[39]/t.pts[30]-1)*100;
@@ -611,9 +624,10 @@ function tick(){
     const b=document.querySelector(`[data-mc2="${t.id}"]`);if(b){b.textContent=fm(t.mcap);b.className="r num mcap "+(d>=0?"flash-up":"flash-down")}}
 }
 
-// live: раз в 15 секунд забираем свежие листинги с бэкенда
+// live: pull fresh listings from the backend every 5 seconds (server caches for 2s)
 const scored=a=>a.map(t=>{t.score=score(t);t.verdict=verdictOf(t.score);return t});
 async function poll(){
+  if(document.visibilityState!=="visible") return;
   const live=await fetchLive(); if(!live) return;
   const old=new Map(TOKENS.map(t=>[t.id,t.mcap]));
   TOKENS=scored(live);
@@ -626,7 +640,7 @@ async function poll(){
 (async()=>{
   TOKENS=scored(await loadListings());
   renderTrending();renderList();
-  if(LIVE) setInterval(poll,15000); else setInterval(tick,3000);
+  if(LIVE) setInterval(poll,5000); else setInterval(tick,3000);
 })();
 </script>
 </body>

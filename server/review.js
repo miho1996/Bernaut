@@ -1,6 +1,6 @@
-// AI-обзор токена через Anthropic Messages API.
-// Метрики берутся из индексатора на сервере, клиент присылает только адрес токена,
-// поэтому эндпоинт нельзя использовать как бесплатный прокси к модели.
+// Token review via the Anthropic Messages API.
+// Metrics come from our own indexer; the client only sends a token address,
+// so the endpoint can't be used as a free proxy to the model.
 
 import { metrics, score, verdictOf, fage } from "./scoring.js";
 
@@ -21,6 +21,7 @@ export function payload(t) {
     snipers_pct: t.snipers,
     buys_24h: t.buys,
     sells_24h: t.sells,
+    unique_traders_24h: t.traders ?? null,
     bonding_curve_progress_pct: t.progress,
     graduated: t.graduated,
     lp_locked: t.lpBurned,
@@ -28,17 +29,17 @@ export function payload(t) {
     dev_previous_rugs: t.devRugs,
     socials: { x: !!t.socials.x, tg: !!t.socials.tg, web: !!t.socials.web },
     price_change_1h_pct: +t.chg.toFixed(1),
-    bernaut_metric_scores: Object.fromEntries(metrics(t).map(([k, v]) => [k, +v.toFixed(1)])),
-    bernaut_total_score: sc,
-    bernaut_verdict: verdictOf(sc),
+    pronoia_metric_scores: Object.fromEntries(metrics(t).map(([k, v]) => [k, +v.toFixed(1)])),
+    pronoia_total_score: sc,
+    pronoia_verdict: verdictOf(sc),
   };
 }
 
 export function buildPrompt(t) {
-  return `Ты — Pronoia, аналитик мемкоинов с лаунчпада Pons (Robinhood Chain). Тебе дают метрики одного токена. Оцени его как опытный on-chain трейдер: ликвидность, концентрацию холдеров, долю дева и снайперов, давление покупок, объём, прогресс бондинг-кривой, историю дева (rug), соцсети, лок LP.
-Ответь ТОЛЬКО валидным JSON без markdown, на русском:
-{"verdict":"enter"|"wait"|"avoid","confidence":0-100,"summary":"2-3 предложения, главный вывод","pros":["до 4 пунктов с цифрами"],"risks":["до 4 пунктов с цифрами"],"entry":"где/как входить","stop":"стоп-лосс","target":"цель","size":"доля депозита"}
-Метрики токена:
+  return `You are Pronoia, an analyst for memecoins launched on the Pons launchpad (Robinhood Chain). You get the on-chain metrics of one token. Judge it like an experienced on-chain trader: liquidity, holder concentration, dev and sniper share, buy pressure, volume, bonding-curve progress, dev history (rugs), socials, LP lock, and whether the volume is organic (unique traders vs trades — few wallets doing many trades means wash trading).
+Reply with ONLY valid JSON, no markdown, in English:
+{"verdict":"enter"|"wait"|"avoid","confidence":0-100,"summary":"2-3 sentences, the main takeaway","pros":["up to 4 points with numbers"],"risks":["up to 4 points with numbers"],"entry":"where/how to enter","stop":"stop-loss","target":"take-profit target","size":"share of portfolio"}
+Token metrics:
 ${JSON.stringify(payload(t), null, 1)}`;
 }
 

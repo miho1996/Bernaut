@@ -301,6 +301,7 @@ export class PonsIndexer {
       balances: new Map(),
       firstBuy: new Map(), // адрес → блок первой покупки
       swaps: [], // { ts, price (в пар-токене), buy, pairAmt }
+      traders: [], // { ts, who } — для метрики «органика» (уникальные трейдеры / сделки)
       lastPrice: 0,
       progress: 0,
       graduated: false,
@@ -346,6 +347,9 @@ export class PonsIndexer {
 
   trimSwaps(t, ts) {
     const cutoff = ts - DAY;
+    let n = 0;
+    while (n < t.traders.length && t.traders[n].ts < cutoff) n++;
+    if (n > 0) t.traders.splice(0, n);
     let i = 0;
     while (i < t.swaps.length - 1 && t.swaps[i + 1].ts < cutoff) i++;
     if (i > 0) t.swaps.splice(0, i);
@@ -365,12 +369,14 @@ export class PonsIndexer {
       price = tok > 0 ? (pairAmt - q(a.fee) - q(a.tax)) / tok : 0;
       const who = lc(a.recipient);
       if (!t.firstBuy.has(who)) t.firstBuy.set(who, l.blockNumber);
+      t.traders.push({ ts, who });
     } else {
       buy = false;
       pairAmt = q(a.quoteOut);
       const tok = k(a.tokensIn);
       price = tok > 0 ? (pairAmt + q(a.fee) + q(a.tax)) / tok : 0;
       if (lc(a.seller) === t.deployer) t.devSold = true;
+      t.traders.push({ ts, who: lc(a.seller) });
     }
     if (price > 0) t.lastPrice = price;
     t.swaps.push({ ts, price: price || t.lastPrice, buy, pairAmt });
@@ -414,6 +420,11 @@ export class PonsIndexer {
     if (from !== ZERO) t.balances.set(from, (t.balances.get(from) ?? 0) - v);
     t.balances.set(to, (t.balances.get(to) ?? 0) + v);
     if (from === PONS.poolManager && !this.excluded.has(to) && !t.firstBuy.has(to)) t.firstBuy.set(to, l.blockNumber);
+    // после graduation сделки идут через V4 (sender там — роутер), трейдера берём из трансфера
+    if (t.graduated) {
+      if (from === PONS.poolManager && !this.excluded.has(to)) t.traders.push({ ts, who: to });
+      else if (to === PONS.poolManager && !this.excluded.has(from)) t.traders.push({ ts, who: from });
+    }
     t.lastActivity = Math.max(t.lastActivity, ts);
   }
 
@@ -439,8 +450,10 @@ export class PonsIndexer {
             if (lt && Number(lt.phase) >= 2) { t.graduated = true; t.progress = 100; }
           }
         }
-        if (info) t.info = info;
-        else if (!t.info) t.info = { logo: null, description: null, socials: {} };
+        if (info) {
+          t.info = info;
+          if (info.logo) this.onLogo?.(info.logo); // сервер заранее кладёт логотип в кэш
+        } else if (!t.info) t.info = { logo: null, description: null, socials: {} };
         t.dirty = false;
       } catch (e) {
         this.log.warn?.(`[pons] refresh ${t.address}: ${e.message}`);
@@ -488,6 +501,7 @@ export class PonsIndexer {
     }
 
     const day = t.swaps.filter((s) => s.ts >= now - DAY);
+    const traders = new Set(t.traders.filter((x) => x.ts >= now - DAY).map((x) => x.who)).size;
     const buys = day.filter((s) => s.buy).length;
     const sells = day.length - buys;
     const vol24 = day.reduce((s, x) => s + x.pairAmt, 0) * pairUsd;
@@ -542,6 +556,7 @@ export class PonsIndexer {
       vol24,
       buys,
       sells,
+      traders,
       liq,
       devPrev: prev.length,
       devRugs,
