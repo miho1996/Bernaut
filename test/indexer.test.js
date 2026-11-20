@@ -21,8 +21,9 @@ const LAUNCH = 1000n;
 const NOW = Math.floor(Date.now() / 1000);
 const pad = (a) => "0x" + a.slice(2).padStart(64, "0");
 
-const infoHex = encodeAbiParameters(parseAbiParameters("(address,string,string,string,string,string,string,string)"), [
-  [DEV, "ipfs://QmLogo123", "The best frog on Robinhood", "https://x.com/frog", "https://t.me/frog", "", "https://frog.fun", ""],
+// раскладка как у настоящего Pons V2: (deployer, logo, description, (twitter, telegram, discord, website, farcaster))
+const infoHex = encodeAbiParameters(parseAbiParameters("address, string, string, (string, string, string, string, string)"), [
+  DEV, "ipfs://QmLogo123", "The best frog on Robinhood", ["https://x.com/frog", "https://t.me/frog", "", "https://frog.fun", ""],
 ]);
 // V4: currency0 = ETH, currency1 = токен; цена 1e-8 ETH за токен → raw token/ETH = 1e8 → sqrt = 1e4 * 2^96
 const SQRT = BigInt(1e4) * 2n ** 96n;
@@ -60,7 +61,8 @@ function fakeClient() {
     },
     readContract: async ({ address, functionName }) => {
       const a = address.toLowerCase();
-      if (functionName === "pairTokenEconomics") return [168n * 10n ** 16n, 42n * 10n ** 17n, 18];
+      if (functionName === "pairTokenEconomics") return [0n, 0n, 0]; // как в реальной сети для ETH
+      if (functionName === "getLaunchConfig") return { supply: 10n ** 27n, curveFeeBps: 100n, phantomQuote: 168n * 10n ** 16n, graduationThreshold: 42n * 10n ** 17n };
       if (functionName === "getReserves") return a === CURVE ? [378n * 10n ** 16n, 939_500_000n * E18] : [168n * 10n ** 16n, 0n];
       if (functionName === "getLaunchedToken") return { phase: 2 };
       if (functionName === "symbol") return a === TOKEN ? "FROG" : "TOAD";

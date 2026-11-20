@@ -4,6 +4,8 @@
 // Поэтому вызываем метод «сырым» eth_call и вытаскиваем из ABI-ответа все строки,
 // а потом раскладываем их по смыслу. Это переживёт изменение порядка полей в структуре.
 
+import { decodeAbiParameters, parseAbiParameters } from "viem";
+
 export const GET_TOKEN_INFO_SELECTOR = "0xabb1dc44"; // keccak256("getTokenInfo()")[0..4], проверяется в тестах
 
 const printable = (s) => s.length > 0 && !/[\u0000-\u0008\u000e-\u001f]/.test(s);
@@ -66,6 +68,22 @@ export function classifyStrings(strings) {
   return out;
 }
 
+// Pons V2: getTokenInfo() → (address deployer, string logo, string description,
+//   (string twitter, string telegram, string discord, string website, string farcaster) socials)
+const V2_INFO = parseAbiParameters("address, string, string, (string, string, string, string, string)");
+
 export function parseTokenInfo(hex) {
-  return classifyStrings(extractAbiStrings(hex));
+  try {
+    const [, logo, description, so] = decodeAbiParameters(V2_INFO, hex);
+    const s = Array.isArray(so) ? so : Object.values(so);
+    const v = (x) => (x && String(x).trim()) || null;
+    return {
+      logo: normalizeUri(v(logo)),
+      description: v(description),
+      socials: { x: v(s[0]), tg: v(s[1]), discord: v(s[2]), web: v(s[3]), farcaster: v(s[4]) },
+    };
+  } catch {
+    // неизвестная раскладка → эвристика по всем строкам ответа
+    return classifyStrings(extractAbiStrings(hex));
+  }
 }

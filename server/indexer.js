@@ -43,6 +43,7 @@ export const EV_TRANSFER = parseAbiItem("event Transfer(address indexed from, ad
 
 const FACTORY_ABI = parseAbi([
   "function pairTokenEconomics(address) view returns (uint256 phantomQuote, uint256 graduationThreshold, uint8 decimals)",
+  "function getLaunchConfig(uint256) view returns ((uint256 supply, uint256 curveFeeBps, uint256 phantomQuote, uint256 graduationThreshold, uint24 poolFee, int24 tickSpacing, bool enabled))",
   "function getLaunchedToken(address) view returns ((address token, address curve, address deployer, address creatorFeeRecipient, address pairToken, uint256 graduationThreshold, uint24 poolFee, int24 tickSpacing, uint16 creatorTaxBps, bool buybackEnabled, uint8 phase, uint256 sweptQuote, uint256 sweptTokens, uint256 sweptAt, bool exists))",
 ]);
 const CURVE_ABI = parseAbi(["function getReserves() view returns (uint256 quoteReserve, uint256 tokenReserve)"]);
@@ -98,6 +99,7 @@ export class PonsIndexer {
     this.curves = new Map(); // curve → token
     this.v4pools = new Map(); // poolId → token
     this.pairs = new Map(); // pairToken → { symbol, decimals, kind, phantom }
+    this.configs = new Map(); // launchConfigId → phantomQuote (raw)
     this.deployers = new Map(); // deployer → [{ token, block }]  (не вычищается)
     this.rugged = new Set();
     this.prices = { eth: cfg.ethUsdFallback, btc: null, ts: 0 };
@@ -240,10 +242,21 @@ export class PonsIndexer {
       const s = String(symbol).toUpperCase();
       const kind = a === NATIVE ? "eth" : /USD/.test(s) ? "usd" : /ETH/.test(s) ? "eth" : /BTC/.test(s) ? "btc" : "unknown";
       const dec = Number(decimals);
-      const phantom = econ ? Number(formatUnits(econ[0], dec)) : a === NATIVE ? 1.68 : 0;
+      const phantom = econ ? Number(formatUnits(econ[0], dec)) : 0;
       this.pairs.set(a, { symbol: String(symbol), decimals: dec, kind, phantom });
     }
     return this.pairs.get(a);
+  }
+
+  async configPhantom(id) {
+    if (id == null) return null;
+    const k = String(id);
+    if (!this.configs.has(k)) {
+      const c = await this.client.readContract({ address: PONS.factory, abi: FACTORY_ABI, functionName: "getLaunchConfig", args: [BigInt(id)] }).catch(() => null);
+      if (!c) return null;
+      this.configs.set(k, c.phantomQuote ?? c[2]);
+    }
+    return this.configs.get(k);
   }
 
   pairUsd(addr) {
@@ -259,8 +272,9 @@ export class PonsIndexer {
     const a = l.args;
     const token = lc(a.token);
     if (this.tokens.has(token)) return;
-    const [pair, name, symbol, decimals, supply, launchTs] = await Promise.all([
+    const [pair, cfgPhantom, name, symbol, decimals, supply, launchTs] = await Promise.all([
       this.pairInfo(a.pairToken),
+      this.configPhantom(a.launchConfigId),
       this.client.readContract({ address: a.token, abi: ERC20_ABI, functionName: "name" }).catch(() => ""),
       this.client.readContract({ address: a.token, abi: ERC20_ABI, functionName: "symbol" }).catch(() => "???"),
       this.client.readContract({ address: a.token, abi: ERC20_ABI, functionName: "decimals" }).catch(() => 18),
@@ -276,7 +290,8 @@ export class PonsIndexer {
       isToken0: false, // в V4 нативный ETH всегда currency0
       decimals: Number(decimals),
       pairDecimals: pair.decimals,
-      phantom: pair.phantom,
+      // фантомная ликвидность: из pairTokenEconomics, а для ETH (там нули) — из launch config
+      phantom: pair.phantom > 0 ? pair.phantom : cfgPhantom != null ? Number(formatUnits(cfgPhantom, pair.decimals)) : a.pairToken.toLowerCase() === NATIVE ? 1.68 : 0,
       threshold: Number(formatUnits(a.graduationThreshold ?? 0n, pair.decimals)) || 4.2,
       supply: Number(formatUnits(supply, Number(decimals))) || 1,
       name: String(name),
