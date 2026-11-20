@@ -190,7 +190,7 @@ test("HTTP: листинги, статус, AI-обзор и кэш", async () =
     const res = await fetch(base + "/", { headers: { "accept-encoding": "br, gzip" } });
     assert.equal(res.headers.get("content-encoding"), "br", "страница сжата");
     const html = await res.text();
-    assert.match(html, /PRONOIA/);
+    assert.match(html, /Elenchos/);
     assert.match(html, /window\.__BOOT__=\{"status"/, "листинги вшиты в HTML");
     assert.ok(!/__BOOT__=[^<]*<\/script>[^]*<!--BOOT-->/.test(html), "плейсхолдер заменён");
     const r1 = await fetch(base + `/api/review/${TOKEN}`, { method: "POST" });

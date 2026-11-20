@@ -29,14 +29,14 @@ export function payload(t) {
     dev_previous_rugs: t.devRugs,
     socials: { x: !!t.socials.x, tg: !!t.socials.tg, web: !!t.socials.web },
     price_change_1h_pct: +t.chg.toFixed(1),
-    pronoia_metric_scores: Object.fromEntries(metrics(t).map(([k, v]) => [k, +v.toFixed(1)])),
-    pronoia_total_score: sc,
-    pronoia_verdict: verdictOf(sc),
+    elenchos_metric_scores: Object.fromEntries(metrics(t).map(([k, v]) => [k, +v.toFixed(1)])),
+    elenchos_total_score: sc,
+    elenchos_verdict: verdictOf(sc),
   };
 }
 
 export function buildPrompt(t) {
-  return `You are Pronoia, an analyst for memecoins launched on the Pons launchpad (Robinhood Chain). You get the on-chain metrics of one token. Judge it like an experienced on-chain trader: liquidity, holder concentration, dev and sniper share, buy pressure, volume, bonding-curve progress, dev history (rugs), socials, LP lock, and whether the volume is organic (unique traders vs trades — few wallets doing many trades means wash trading).
+  return `You are Elenchos, an analyst for memecoins launched on the Pons launchpad (Robinhood Chain). You get the on-chain metrics of one token. Judge it like an experienced on-chain trader: liquidity, holder concentration, dev and sniper share, buy pressure, volume, bonding-curve progress, dev history (rugs), socials, LP lock, and whether the volume is organic (unique traders vs trades — few wallets doing many trades means wash trading).
 Reply with ONLY valid JSON, no markdown, in English:
 {"verdict":"enter"|"wait"|"avoid","confidence":0-100,"summary":"2-3 sentences, the main takeaway","pros":["up to 4 points with numbers"],"risks":["up to 4 points with numbers"],"entry":"where/how to enter","stop":"stop-loss","target":"take-profit target","size":"share of portfolio"}
 Token metrics:
@@ -64,7 +64,7 @@ export async function generateReview(t, { provider = "anthropic", apiKey, model,
   const r = await fetchImpl(isOR ? "https://openrouter.ai/api/v1/chat/completions" : "https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: isOR
-      ? { "content-type": "application/json", authorization: `Bearer ${apiKey}`, "X-Title": "Pronoia", ...(siteUrl ? { "HTTP-Referer": siteUrl } : {}) }
+      ? { "content-type": "application/json", authorization: `Bearer ${apiKey}`, "X-Title": "Elenchos", ...(siteUrl ? { "HTTP-Referer": siteUrl } : {}) }
       : { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({ model, max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
   });

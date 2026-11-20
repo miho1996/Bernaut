@@ -1,8 +1,8 @@
 {
-  "name": "pronoia",
+  "name": "elenchos",
   "version": "0.2.0",
   "private": true,
-  "description": "Bernaut — AI-анализ листингов Pons (Robinhood Chain)",
+  "description": "Elenchos — AI verdicts for every Pons launch (Robinhood Chain)",
   "type": "module",
   "main": "server/index.js",
   "scripts": {

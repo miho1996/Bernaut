@@ -1,4 +1,4 @@
-// Pronoia backend: индексатор Pons + API + AI-обзор + раздача сайта.
+// Elenchos backend: индексатор Pons + API + AI-обзор + раздача сайта.
 //
 //   GET  /                     → index.html
 //   GET  /api/status           → состояние синхронизации
@@ -59,7 +59,7 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 8000);
     try {
-      const r = await fetchImpl(href, { signal: ctl.signal, redirect: "follow", headers: { accept: "image/*,*/*;q=0.5", "user-agent": "Mozilla/5.0 Pronoia" } });
+      const r = await fetchImpl(href, { signal: ctl.signal, redirect: "follow", headers: { accept: "image/*,*/*;q=0.5", "user-agent": "Mozilla/5.0 Elenchos" } });
       if (!r.ok) return null;
       const buf = Buffer.from(await r.arrayBuffer());
       if (buf.length > 2 * 1024 * 1024) return null;
@@ -193,5 +193,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const port = +(process.env.PORT || 8080);
   const app = createApp({ indexer });
   if (indexer) indexer.onLogo = (u) => app.warm(u);
-  http.createServer(app).listen(port, () => console.log(`Pronoia on :${port}`));
+  http.createServer(app).listen(port, () => console.log(`Elenchos on :${port}`));
 }
