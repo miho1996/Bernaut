@@ -41,30 +41,47 @@ export function createApp({ indexer, env = process.env, fetchImpl = globalThis.f
   };
 
   // Прокси логотипов: только https/http картинки до 2 МБ, без внутренних адресов, кэш в памяти.
+  // IPFS: перебираем несколько шлюзов; тип картинки определяем по содержимому (шлюзы часто отдают octet-stream).
+  const GATEWAYS = ["https://dweb.link/ipfs/", "https://gateway.pinata.cloud/ipfs/", "https://ipfs.io/ipfs/", "https://w3s.link/ipfs/"];
+  const sniff = (b) => {
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+    if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif";
+    if (b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP") return "image/webp";
+    if (b.subarray(4, 12).toString().startsWith("ftypavif")) return "image/avif";
+    const head = b.subarray(0, 300).toString("utf8").trimStart().toLowerCase();
+    if (head.startsWith("<svg") || (head.startsWith("<?xml") && head.includes("<svg"))) return "image/svg+xml";
+    return null;
+  };
+  const okHost = (t) => /^https?:$/.test(t.protocol) && !/^(localhost|.*\.local|.*\.internal)$/i.test(t.hostname) && !/^[\d.]+$/.test(t.hostname) && !t.hostname.includes(":");
+  async function fetchImage(href) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const r = await fetchImpl(href, { signal: ctl.signal, redirect: "follow", headers: { accept: "image/*,*/*;q=0.5", "user-agent": "Mozilla/5.0 Pronoia" } });
+      if (!r.ok) return null;
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 2 * 1024 * 1024) return null;
+      const type = sniff(buf);
+      return type ? { type, buf } : null;
+    } catch { return null; } finally { clearTimeout(timer); }
+  }
   async function proxyImage(u, res) {
     let target;
     try { target = new URL(u); } catch { return send(res, 400, { error: "bad url" }); }
-    const h = target.hostname;
-    if (!/^https?:$/.test(target.protocol) || /^(localhost|.*\.local|.*\.internal)$/i.test(h) || /^[\d.]+$/.test(h) || h.includes(":")) return send(res, 400, { error: "bad url" });
+    if (!okHost(target)) return send(res, 400, { error: "bad url" });
     const key = target.href;
     let hit = imgCache.get(key);
-    if (!hit) {
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 8000);
-      try {
-        const r = await fetchImpl(key, { signal: ctl.signal, redirect: "follow", headers: { accept: "image/*" } });
-        const type = r.headers.get("content-type") || "";
-        if (!r.ok || !/^image\//.test(type)) return send(res, 404, { error: "not an image" });
-        const buf = Buffer.from(await r.arrayBuffer());
-        if (buf.length > 2 * 1024 * 1024) return send(res, 413, { error: "too large" });
-        hit = { type: type.split(";")[0], buf };
-        imgCache.set(key, hit);
-        if (imgCache.size > 600) imgCache.delete(imgCache.keys().next().value);
-      } catch {
-        return send(res, 504, { error: "fetch failed" });
-      } finally { clearTimeout(timer); }
+    if (hit === undefined) {
+      const m = key.match(/\/ipfs\/(.+)$/);
+      const tries = m ? GATEWAYS.map((g) => g + m[1]) : [key];
+      hit = null;
+      for (const h of tries) { hit = await fetchImage(h); if (hit) break; }
+      imgCache.set(key, hit); // null тоже кэшируем, чтобы не долбить мёртвые ссылки
+      if (imgCache.size > 800) imgCache.delete(imgCache.keys().next().value);
     }
-    res.writeHead(200, { "content-type": hit.type === "image/svg+xml" ? "image/svg+xml" : hit.type, "cache-control": "public, max-age=86400", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff", "access-control-allow-origin": allowOrigin });
+    if (!hit) return send(res, 404, { error: "no image" }, { "cache-control": "public, max-age=600" });
+    res.writeHead(200, { "content-type": hit.type, "cache-control": "public, max-age=86400", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'", "x-content-type-options": "nosniff", "access-control-allow-origin": allowOrigin });
     res.end(hit.buf);
   }
 
